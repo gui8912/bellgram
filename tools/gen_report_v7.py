@@ -849,8 +849,9 @@ for rel, label in order:
 
 with io.open(OUT, "w", encoding="utf-8", newline="\n") as fh:
     full = HEAD + S6_HEAD + u"\n".join(sections) + u"\n" + TAIL
-    # 正文里的 '\0' 分隔符在 Python 字符串中会被解释成 NUL 字节，写回成字面量
-    fh.write(full.replace(u"\x00", u"\\0"))
+    # 正文里的 '\0' 分隔符在 Python 字符串中会被解释成 NUL 字节，写回成字面量；
+    # 代码片段里的 Unicode 转义也还原成 Java 的单反斜杠写法
+    fh.write(full.replace(u"\x00", u"\\0").replace(u"\\\\u", u"\\u"))
 
 print("生成 %s" % OUT)
 print("源码文件数:", len(sections))
