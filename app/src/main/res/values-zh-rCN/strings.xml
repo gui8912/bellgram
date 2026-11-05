@@ -21,7 +21,7 @@
 
     <string name="app_version">应用版本</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.1.0</string>
+    <string name="current_app_version">4.1.1</string>
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">http://unchartedtech.work/privacy-policy</string>
     <string name="user_guidance">点击查看应用隐私政策</string>
