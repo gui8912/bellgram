@@ -1,0 +1,3 @@
+// modified: 补充根项目名，便于 IDE 识别（原文件只有 include ':app'）
+rootProject.name = 'PriorityAlerts'
+include ':app'

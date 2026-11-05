@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- custom theme for entire app -->
+    <style name="MyAppTheme" parent="Theme.MaterialComponents.Light.DarkActionBar.Bridge">
+        <!-- primary color for app bar, UI elements(material design) -->
+        <item name="colorPrimary">@color/primaryColor</item>
+        <!-- dark color for status bar -->
+         <item name="colorPrimaryDark">@color/primaryDarkColor</item>
+        <!-- color used for edit text and other views in highlighted/ focused state -->
+        <item name="colorAccent">@color/secondaryLightColor</item>
+        <!-- custom style for button-->
+        <item name="buttonStyle">@style/MyButtonViewStyle</item>
+        <!-- modified: 纯色浅灰底 + 白色卡片 -->
+        <item name="android:windowBackground">@color/surface_bg</item>
+        <!-- custom snackbar styling -->
+        <item name="snackbarStyle">@style/Widget.App.Snackbar</item>
+        <!-- adjust colors of edit text when used and in normal state-->
+        <item name="colorControlNormal">@color/primaryLightColor</item>
+        <item name="colorControlActivated">@color/somewhat_red</item>
+        <item name="android:textColorHighlight">@color/secondaryColor</item>
+    </style>
+    <!-- splash drawable to be applied as splash window, before activity shows up -->
+    <style name="MyAppTheme.Splash">
+        <item name="android:windowBackground">@drawable/splash_drawable</item>
+    </style>
+    <!-- custom style for textView (material design) -->
+    <style name="MyTextViewStyle" parent="android:Widget.TextView">
+        <!-- use text color of the derived theme-->
+        <item name="android:textColor">?attr/colorPrimary</item>
+        <!-- custom background color -->
+        <item name="android:background">@drawable/rounded_button</item>
+        <!-- left margin alignment -->
+        <item name="android:layout_marginStart">8dp</item>
+        <!-- padding -->
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <!-- align the text as center and left side -->
+        <item name="android:gravity">center|left</item>
+        <!-- make the text to appear Big, change font family -->
+        <item name="android:textAppearance">?android:attr/textAppearanceMedium</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:windowContentTransitions">true</item>
+    </style>
+
+    <!-- custom style for Button -->
+    <style name="MyButtonViewStyle" parent="Widget.AppCompat.Button">
+        <!-- assign a gradient(somewhat red and blue) background to a button -->
+          <item name="android:background">@drawable/rounded_button_gradient</item>
+        <!-- white text color to button text -->
+          <item name="android:textColor">@color/primaryTextColor</item>
+        <!-- make the button to pop-up -->
+        <item name="android:elevation">30dp</item>
+    </style>
+
+    <!-- snackbar customization material theming -->
+    <style name="Widget.App.Snackbar" parent="Widget.MaterialComponents.Snackbar.FullWidth">
+        <item name="android:background">@drawable/snackbar_shape</item>
+        <item name="elevation">20dp</item>
+    </style>
+
+    <!-- Dialog customization -->
+    <style name="MyDialogTheme" parent="Theme.AppCompat.Light.Dialog.Alert">
+        <item name="android:windowBackground">@color/app_logo_background</item>
+        <item name="colorAccent">@color/primaryLightColor</item>
+    </style>
+
+    <!-- Theme used primarily for FTI setup / Onboarding screen -->
+    <style name="OnboardingTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+        <item name="colorPrimary">@color/somewhat_red</item>
+        <item name="colorPrimaryDark">#680000</item>
+        <item name="colorAccent">@color/lightPinkColor</item>
+        <item name="android:windowContentTransitions">true</item>
+        <item name="android:colorControlHighlight">@color/lightGreenColor</item>
+    </style>
+
+    <!-- material themed preferences for settings screen -->
+    <style name="AppSettingsTheme" parent="MyAppTheme">
+        <item name="colorAccent">@color/secondaryDarkColor</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Material</item>
+    </style>
+
+
+    <!-- ===== 二次开发新增：重做界面用的样式 ===== -->
+
+    <!-- 输入区块的小标题 -->
+    <style name="SectionTitle" parent="android:Widget.TextView">
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.03</item>
+    </style>
+
+    <!-- 主按钮：实心、圆角、加粗 -->
+    <style name="PrimaryButtonStyle" parent="Widget.MaterialComponents.Button">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">@color/primaryTextColor</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="backgroundTint">@color/secondaryDarkColor</item>
+        <item name="cornerRadius">14dp</item>
+    </style>
+
+    <!-- 次要按钮：描边、无填充 -->
+    <style name="SecondaryButtonStyle" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColor">@color/secondaryDarkColor</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="strokeColor">@color/card_stroke</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="rippleColor">@color/status_idle_bg</item>
+    </style>
+    <!-- 二次开发新增（借鉴短信铃铛）：全屏告警页主题。
+         用 NoActionBar 变体，避免锁屏拉起时顶部出现一条与深色背景不协调的 ActionBar。 -->
+    <style name="AlertTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+        <item name="android:windowBackground">@color/alert_bg</item>
+        <item name="android:statusBarColor">@color/alert_bg</item>
+        <item name="android:navigationBarColor">@color/alert_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <!-- 告警页主按钮：整屏最醒目的元素，必须一眼可点 -->
+    <style name="AlertStopButtonStyle" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/alert_accent</item>
+        <item name="android:textColor">@color/alert_text_primary</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <!-- 告警页次按钮：稍后提醒 -->
+    <style name="AlertSnoozeButtonStyle" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textColor">@color/alert_text_primary</item>
+        <item name="android:textSize">16sp</item>
+        <item name="cornerRadius">16dp</item>
+        <item name="strokeColor">@color/alert_text_secondary</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+</resources>

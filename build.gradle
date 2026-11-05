@@ -1,0 +1,33 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+//
+// 二次开发说明（modified）：
+//   [v3] 原配置 AGP 3.2.1 + Gradle 4.6 -> AGP 8.5.2 + Gradle 8.7 + JDK 17。
+//   [v4] 为支持 compileSdk/targetSdk 36（Android 16），再升到 AGP 8.11.1 + Gradle 8.13。
+//        AGP 8.11 是官方首个明确支持 API 36 的版本（Gradle 8.13 / JDK 17 / Build Tools 35.0.0）。
+//        本轮同时把 targetSdk 从 29 提到 36，运行期行为变更由代码侧的架构重构承接。
+
+buildscript {
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // modified: 3.2.1 -> 8.5.2 -> 8.11.1（配合 Gradle 8.13 / JDK 17 / API 36）
+        classpath 'com.android.tools.build:gradle:8.11.1'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+tasks.register('clean', Delete) {
+    delete rootProject.layout.buildDirectory
+}

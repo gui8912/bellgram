@@ -1,0 +1,195 @@
+<resources>
+    <string name="app_name">铃信</string>
+    <string name="enter_the_contact_name">接收号码（可选）</string>
+    <string name="contact_value">手机号，留空表示所有号码</string>
+    <string name="message_string">提醒关键词（必填）</string>
+    <string name="message_hint">多个关键词用逗号分隔</string>
+    <string name="trigger_button">启用提醒</string>
+    <string name="clear_button">清除配置</string>
+    <string name="reminder_settings_button">提醒方式与重复</string>
+    <string name="logo">app_logo</string>
+
+    <string name="settings_button">应用设置</string>
+    <string name="app_pref_category1">功能</string>
+    <!-- 该字符串用作 SharedPreferences 的 key，必须与默认值保持一致，禁止翻译 -->
+    <string name="app_category_key1">features_key</string>
+    <string name="app_pref_category2">应用配置</string>
+    <string name="app_category_key2">configuration_key</string>
+
+    <string name="sms_config">当前短信配置</string>
+    <string name="sms_config_key">notification_key</string>
+
+    <string name="app_version">应用版本</string>
+    <string name="app_version_key">app_version_key</string>
+    <string name="current_app_version">4.0.1</string>
+    <string name="app_privacy_policy">隐私政策</string>
+    <string name="privacy_url">http://unchartedtech.work/privacy-policy</string>
+    <string name="user_guidance">点击查看应用隐私政策</string>
+
+    <string name="auto_suggestion_feature">自动联想</string>
+    <string name="auto_suggestion_key">autosuggestion_key</string>
+    <string name="auto_suggestion_on">当前已启用，重启应用后该功能生效</string>
+    <string name="auto_suggestion_off">当前未启用，开启将申请读取联系人权限</string>
+
+    <string name="dialog_text">是否为联系人号码启用自动联想功能？</string>
+    <string name="helper_text_keyword">多个关键词用逗号或空格分隔，任一命中即响铃</string>
+
+    <string name="OnboardingTitle1">"输入关键词"</string>
+    <string name="OnboardingTitle2">"铃信"</string>
+    <string name="OnboardingTitle3">"隐私"</string>
+
+    <string name="OnboardingDesc1">"支持多个关键词，当收到包含所配置关键词的短信时通知您"。\n 提供该功能需要您同意在后台读取收到的短信"</string>
+    <string name="OnboardingDesc2">"即使在静音模式下，也能为所配置的关键词发出通知"</string>
+    <string name="OnboardingDesc3">"我们遵循安卓各项最佳实践来保护您的隐私，绝不收集或向任何人分享数据"</string>
+    <string name="prev">上一步</string>
+    <string name="next">下一步</string>
+    <string name="finish">完成</string>
+
+    <!-- 由硬编码迁入的字符串 -->
+    <string name="contact_picker_title">选择联系人</string>
+    <string name="contact_picker_message">是否要选择联系人？</string>
+    <string name="yes">是</string>
+    <string name="no">否</string>
+    <string name="input_format_error">号码格式不正确（应为 5-15 位数字）</string>
+    <string name="notif_title">收到优先消息！</string>
+    <string name="notif_text">收到来自 %2$s 的关键词 %1$s</string>
+    <string name="notif_bigtext">收到来自 %2$s 的短信：%1$s</string>
+    <string name="stop">停止</string>
+    <string name="notif_summary">点击“停止”取消</string>
+
+    <!-- 由硬编码迁入的其余字符串 -->
+    <string name="channel_name">优先短信</string>
+    <string name="dialog_set">设置</string>
+    <string name="dialog_dismiss">关闭</string>
+    <string name="dialog_dont_show">不再显示</string>
+    <string name="config_saved">已保存配置，将据此捕获短信</string>
+    <string name="keyword_empty">提醒关键词不能为空！</string>
+    <string name="enable_sms_perm">请在应用权限中开启“读取短信”权限</string>
+    <string name="show_user_msg">需要开启部分权限才能正常工作</string>
+    <string name="enable_contact_perm">请开启联系人权限以使用自动联想</string>
+    <string name="set_permissions">设置权限</string>
+    <string name="triggered">提醒已开启</string>
+    <string name="cleared">已清除</string>
+
+    <!-- 设置页当前配置摘要 -->
+    <string name="config_summary_header">当前配置：\n电话号码：</string>
+    <string name="not_configured"> 未配置 </string>
+    <string name="contact_name_label">\n联系人姓名：</string>
+    <string name="keywords_label">\n关键词：</string>
+
+    <!-- 二次开发新增：号码输入提示与校验说明 -->
+    <string name="contact_helper">最多 15 位，可含国际区号</string>
+    <string name="no_contact_app">本机未找到可用的通讯录应用</string>
+
+    <!-- 二次开发新增：通知渠道说明（静音渠道 + 降级有声渠道） -->
+    <string name="channel_desc">由本应用自行播放闹钟铃声，系统通知音已关闭</string>
+    <string name="channel_name_fallback">优先短信（降级通道）</string>
+    <string name="channel_desc_fallback">仅在提醒服务无法启动时使用</string>
+
+    <!-- 二次开发新增：最近命中记录 -->
+    <string name="hit_log">最近命中记录</string>
+    <string name="hit_log_key">hit_log_key</string>
+    <string name="hit_log_empty">暂无命中记录。可发送一条测试短信验证规则是否生效。</string>
+    <string name="clear_hit_log">清空命中记录</string>
+    <string name="clear_hit_log_key">clear_hit_log_key</string>
+    <string name="hit_log_cleared">命中记录已清空</string>
+
+
+    <!-- 二次开发新增：重做界面所需文案 -->
+    <string name="app_tagline">收到含关键词的短信时，用最大音量的闹铃提醒你——提示音太小、容易错过的重要信息，不会再漏掉。</string>
+    <string name="status_idle">尚未监听 · 填写至少一个关键词后点击「启用提醒」</string>
+    <string name="status_listening">监听中 · 关键词：%1$s</string>
+    <!-- 二次开发新增：状态条上的提醒策略摘要 -->
+    <string name="status_mode">提醒方式：%1$s</string>
+    <string name="mode_ring_on">闹钟铃声</string>
+    <string name="mode_ring_off">静音</string>
+    <string name="mode_vibrate_on">震动</string>
+    <string name="mode_vibrate_off">不震动</string>
+    <string name="mode_repeat_unlimited">每 %1$d 分钟提醒一次，直到我停止</string>
+    <string name="mode_repeat_limited">每 %1$d 分钟提醒一次，最多 %2$d 次</string>
+    <string name="permission_tip">红米 / HyperOS 必做四步：① 设置 → 应用设置 → 应用管理 → 铃信 → 自启动 = 开；② 省电策略 = 无限制；③ 通知管理 → 允许锁屏通知与悬浮通知；④ 权限 → 允许「接收短信」。缺任一项，MIUI 都可能在后台杀掉进程，闹铃不会响。</string>
+
+    <!-- 二次开发新增：提醒方式与重复策略 -->
+    <string name="pref_category_reminder">规则与提醒方式</string>
+    <string name="pref_category_reminder_key">reminder_key</string>
+
+    <string name="ring_enabled">响铃</string>
+    <string name="ring_enabled_key">ring_enabled</string>
+    <string name="ring_enabled_on">以最大音量播放闹钟铃声</string>
+    <string name="ring_enabled_off">静音，仅靠通知/震动提醒</string>
+
+    <string name="vibrate_enabled">震动</string>
+    <string name="vibrate_enabled_key">vibrate_enabled</string>
+    <string name="vibrate_enabled_on">提醒期间循环震动</string>
+    <string name="vibrate_enabled_off">不震动</string>
+
+    <string name="ring_duration_title">单次响铃时长</string>
+    <string name="ring_duration_key">ring_duration</string>
+    <string name="ring_duration_hint">选择「直到我手动停止」时，重复提醒不会生效。</string>
+
+    <string name="repeat_interval_title">重复提醒间隔</string>
+    <string name="repeat_interval_key">repeat_interval</string>
+    <string name="repeat_interval_hint">未点击「停止」时，隔多久再响一次。</string>
+
+    <string name="max_repeat_title">最多重复</string>
+    <string name="max_repeat_key">max_repeat</string>
+    <string name="max_repeat_hint">选择「不限」会一直重复到你点停止。</string>
+
+    <!-- 二次开发新增：通知状态文案 -->
+    <string name="notif_status_round">第 %1$d 次提醒</string>
+    <string name="notif_status_wait">已提醒 %1$d 次 · %2$d 分钟后再次提醒</string>
+    <string name="notif_status_done">提醒已结束（共 %1$d 次）</string>
+    <string name="notif_status_done_once">提醒已结束</string>
+    <string name="notif_status_snoozed">已稍后提醒 · %1$d 分钟后再次响铃</string>
+    <!-- 二次开发新增（借鉴短信铃铛）：匹配模式、夜间静音、规则演练、全屏告警 -->
+    <string name="match_all_title">必须包含全部关键词</string>
+    <string name="match_all_key">match_all</string>
+    <string name="match_all_on">只有全部关键词都出现才提醒（误报更少）</string>
+    <string name="match_all_off">任一关键词出现即提醒（原版行为）</string>
+
+    <string name="quiet_hours_title">夜间静音（只震动）</string>
+    <string name="quiet_hours_key">quiet_hours</string>
+    <string name="quiet_hours_hint">该时段内不响铃，只用震动 + 通知提醒；重复提醒照常进行。</string>
+
+    <string name="practice_button">规则演练</string>
+    <string name="practice_title">用示例短信验证规则</string>
+    <string name="practice_hint">把一条你会收到的短信粘进来，立刻看到它会不会被拦截——先验证再依赖。</string>
+    <string name="practice_input_hint">示例短信内容</string>
+    <string name="practice_run">测试</string>
+    <string name="practice_hit">命中 · 关键词「%1$s」</string>
+    <string name="practice_miss">未命中 · 检查关键词或匹配模式</string>
+    <string name="practice_no_keyword">请先填写至少一个关键词</string>
+    <string name="practice_no_input">请先粘贴一条示例短信</string>
+
+    <string name="notif_snooze">稍后提醒</string>
+    <string name="alert_title">铃信</string>
+    <string name="alert_from">来自 %1$s</string>
+    <string name="alert_keyword">命中关键词：%1$s</string>
+    <string name="alert_tip">点「停止」立即静音；点「稍后提醒」先静音、过一会儿再响。</string>
+    <string name="alert_stop">停止</string>
+    <string name="alert_snooze">稍后提醒</string>
+
+    <string name="mode_match_all">全部关键词</string>
+    <string name="mode_match_any">任意关键词</string>
+    <string name="mode_quiet">夜间 %1$s 只震动</string>
+    <!-- v4 合规改造：带闹铃音的主渠道 + Android 16 权限体检 -->
+    <string name="channel_name_audible">优先短信（闹铃音）</string>
+    <string name="channel_desc_audible">命中短信到达时立即播放闹铃音，不依赖后台服务</string>
+    <string name="permission_check_key">permission_check</string>
+    <string name="permission_check_title">权限体检</string>
+    <string name="permission_check_summary">集中检查所有会让提醒失效的系统开关</string>
+    <string name="permission_check_ready">全部就绪</string>
+    <string name="permission_check_pending">%1$d 项待处理</string>
+    <string name="perm_item_sms">接收短信</string>
+    <string name="perm_item_sms_detail">读取短信并匹配关键词的核心权限</string>
+    <string name="perm_item_notification">通知权限</string>
+    <string name="perm_item_notification_detail">Android 13+ 运行时权限，以及应用通知总开关</string>
+    <string name="perm_item_fsi">全屏通知</string>
+    <string name="perm_item_fsi_detail">Android 14+ 可能默认未授予，需在「特殊权限设置」里手动开启</string>
+    <string name="perm_item_battery">电池优化</string>
+    <string name="perm_item_battery_detail">红米 / HyperOS 必须设为「无限制」，否则后台被杀、闹铃不响</string>
+    <string name="perm_item_alarm">重复提醒闹钟</string>
+    <string name="perm_item_alarm_detail">使用 setAlarmClock（用户可见闹钟），无需额外权限，低电耗模式下也能准时触发</string>
+    <string name="status_permission_warning">! 有 %1$d 项权限未就绪 —— 点下方清单去处理</string>
+    <string name="notif_permission_denied">通知权限未开启，提醒无法送达</string>
+</resources>

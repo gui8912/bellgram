@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 二次开发（modified）：引导页改为“内容区 + 指示点 + 按钮栏”三段式纵向堆叠。
+     去掉原 ViewPager 写死的 673dp 高度（小屏/横屏会溢出），并把指示点与按钮分离，避免相互遮挡。 -->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/onboarding"
+    android:theme="@style/OnboardingTheme"
+    tools:context=".Onboarding">
+
+    <androidx.viewpager.widget.ViewPager
+        android:id="@+id/slideView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@+id/navigator_menu"
+        android:layout_alignParentTop="true" />
+
+    <!-- 页面指示点 -->
+    <LinearLayout
+        android:id="@+id/navigator_menu"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/button_bar"
+        android:layout_centerHorizontal="true"
+        android:divider="@null"
+        android:gravity="center"
+        android:minHeight="36dp"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp" />
+
+    <!-- 底部按钮栏：上一页 / 下一页 -->
+    <LinearLayout
+        android:id="@+id/button_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:orientation="horizontal"
+        android:paddingStart="8dp"
+        android:paddingTop="4dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="16dp">
+
+        <Button
+            android:id="@+id/PrevButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:fontFamily="sans-serif-medium"
+            android:padding="16dp"
+            android:text="@string/prev"
+            android:textColor="@color/primaryTextColor"
+            android:visibility="invisible" />
+
+        <Button
+            android:id="@+id/NextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:fontFamily="sans-serif-medium"
+            android:padding="16dp"
+            android:text="@string/next"
+            android:textColor="@color/lightOrangeColor" />
+    </LinearLayout>
+</RelativeLayout>

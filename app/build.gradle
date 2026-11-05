@@ -1,0 +1,77 @@
+// 二次开发说明（modified）：
+//   1) apply plugin 保留原写法（与 buildscript classpath 配套），改动面最小；
+//   2) 新增 namespace：AGP 8 起包名必须在这里声明，manifest 里的 package 已删除；
+//   3) [v4·破坏性] compileSdk 34 -> 36、targetSdk 29 -> 36。
+//      原因：2026-08-31 起 Google Play 要求新应用/更新 targetSdk >= 36（Android 16）；
+//      且 targetSdk <= 34 的应用在更高版本系统上会被限制分发、并出现“为旧版 Android 打造”警告。
+//      代价：targetSdk >= 31 后不允许从 SMS_RECEIVED 广播启动前台服务（官方豁免清单不含短信广播）。
+//      本轮已把主链路重构为「高优先级通知 + 全屏 Intent + setAlarmClock 精确闹钟」，
+//      前台服务只在用户可见（全屏告警页）时启动，因此不再依赖该豁免，详见 AUDIT_REPORT_V4.md §5.1。
+//   4) [v4] 依赖调整：移除已废弃的 legacy-preference-v14，改用 androidx.preference 1.2.1；
+//      新增 androidx.core 1.13.1 用于 edge-to-edge insets（targetSdk 35+ 强制全屏边到边）。
+//      二者均为 Google 官方 AndroidX 稳定版，AAR 合计约 0.6 MB，无新增第三方/非官方依赖。
+//   5) 显式指定 UTF-8 源码编码，避免中文注释在部分环境出现乱码告警。
+
+apply plugin: 'com.android.application'
+
+android {
+    // modified: AGP 8 要求显式 namespace
+    namespace 'com.saiga.find.messagefinder'
+
+    // modified: 29 -> 34 -> 36（Android 16；需安装 SDK Platform 36）
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.saiga.find.messagefinder"
+        // 保持向后兼容：Android 6.0 起
+        minSdk 23
+        // modified: 29 -> 36（本轮核心合规项，理由与配套架构改造见文件头与报告 §5.1）
+        targetSdk 36
+        // modified: 版本号随本次二次开发递增（v4.0.1 = 独立复审修复轮）
+        versionCode 19
+        versionName "4.0.1"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        debug {
+            // 调试包不做混淆，便于查看堆栈
+        }
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+        // modified: 固定源码编码，保证中文注释与字符串正确编译
+        encoding = 'UTF-8'
+    }
+
+    lint {
+        // v4 已清除 android.preference 等废弃 API；保留该开关是为了避免 OEM 相关
+        // 的第三方库告警阻断本地调试打包（个人自用工程，不进 CI）。
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    // modified: 统一升级到与 compileSdk 36 匹配的稳定版本（原 1.2.0 / 1.3.0-alpha02）
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.activity:activity:1.9.1'
+    implementation 'androidx.preference:preference:1.2.1'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    implementation 'de.hdodenhof:circleimageview:3.1.0'
+
+    // 单元测试：新增的 KeywordMatcher / PhoneNumbers 为纯 Java 类，可直接在 JVM 上验证
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}

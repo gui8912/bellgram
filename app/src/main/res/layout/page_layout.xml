@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 二次开发（modified）：引导页单页布局改为纵向居中堆叠，去掉 104dp 的硬编码上边距，
+     适配小屏与横屏（原实现标题位置写死，小屏会挤压说明文字）。控件 id 保持不变。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingStart="32dp"
+    android:paddingTop="24dp"
+    android:paddingEnd="32dp"
+    android:paddingBottom="24dp">
+
+    <TextView
+        android:id="@+id/title_textView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="sans-serif-medium"
+        android:gravity="center"
+        android:textAppearance="@style/TextAppearance.AppCompat.Large"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        tools:text="ENTER KEYWORDS" />
+
+    <de.hdodenhof.circleimageview.CircleImageView
+        android:id="@+id/boarding_image"
+        android:layout_width="168dp"
+        android:layout_height="168dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="28dp"
+        app:civ_border_color="#33FFFFFF"
+        app:civ_border_width="2dp"
+        tools:src="@drawable/app_logo" />
+
+    <TextView
+        android:id="@+id/summaryView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:fontFamily="sans-serif"
+        android:gravity="center"
+        android:lineSpacingExtra="4dp"
+        android:textSize="14sp"
+        tools:text="@tools:sample/lorem/random" />
+</LinearLayout>

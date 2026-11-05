@@ -1,0 +1,31 @@
+# Android / Gradle 标准忽略项
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+app/build/
+build/
+
+# 构建产物与签名材料（绝不入库）
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.jks
+*.keystore
+*.p12
+
+# 本地工具链
+.idea/
+*.hprof
+*.log
+
+# 注意：gradle/wrapper/gradle-wrapper.jar 必须入库！
+# 它是 gradlew 能自举下载 Gradle 发行的前提，忽略它会导致
+# 「克隆后 ./gradlew 直接报 ClassNotFoundException」。

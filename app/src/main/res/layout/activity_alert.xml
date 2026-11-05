@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  二次开发新增（借鉴短信铃铛的「锁屏全屏告警」）：
+  锁屏 / 息屏时由通知的全屏 Intent 直接拉起本页，目的是“挡住你正在看的东西”，
+  让你不得不处理这条短信。因此版式只有一个目标：内容极大、按钮极大、没有可迷路的元素。
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/alert_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/alert_bg"
+    android:fillViewport="true"
+    android:scrollbars="none"
+    tools:context=".AlertActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingTop="48dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="32dp">
+
+        <!-- 顶部标识：一眼看出这是“优先提醒”，不是普通短信通知 -->
+        <TextView
+            android:id="@+id/alert_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_alert_label"
+            android:paddingStart="12dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="6dp"
+            android:text="@string/alert_title"
+            android:textColor="@color/alert_text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <!-- 发送方：这是用户判断“要不要现在处理”的第一信息 -->
+        <TextView
+            android:id="@+id/alert_sender"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:textColor="@color/alert_text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            tools:text="来自 10086" />
+
+        <!-- 命中的关键词 -->
+        <TextView
+            android:id="@+id/alert_keyword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="@color/alert_accent"
+            android:textSize="15sp"
+            tools:text="命中关键词：到账" />
+
+        <!-- 短信正文：给足空间，长短信可滚动 -->
+        <TextView
+            android:id="@+id/alert_body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/bg_alert_card"
+            android:lineSpacingExtra="4dp"
+            android:padding="16dp"
+            android:textColor="@color/alert_text_primary"
+            android:textSize="17sp"
+            tools:text="您尾号 1234 的账户于 11 月 5 日 22:58 转入人民币 8,000.00 元，余额 12,345.00 元。" />
+
+        <!-- 提示 -->
+        <TextView
+            android:id="@+id/alert_tip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/alert_tip"
+            android:textColor="@color/alert_text_secondary"
+            android:textSize="13sp" />
+
+        <!-- 把按钮压到底部：无论正文多长，按钮都在一眼可见的位置 -->
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:layout_weight="1" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/alert_stop"
+            style="@style/AlertStopButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="64dp"
+            android:text="@string/alert_stop" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/alert_snooze"
+            style="@style/AlertSnoozeButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="12dp"
+            android:text="@string/alert_snooze" />
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,194 @@
+<resources>
+    <string name="app_name">Bellgram</string>
+    <string name="enter_the_contact_name">FROM NUMBER (OPTIONAL)</string>
+    <string name="contact_value">Phone number, leave empty for all</string>
+    <string name="message_string">ALERT KEYWORDS (REQUIRED)</string>
+    <string name="message_hint">Keywords, separate with commas</string>
+    <string name="trigger_button">Turn on alert</string>
+    <string name="clear_button">Clear settings</string>
+    <string name="reminder_settings_button">Reminder mode &amp; repeat</string>
+    <string name="logo">app_logo</string>
+
+    <string name="settings_button">App Settings</string>
+    <string name="app_pref_category1">Features</string>
+    <string name="app_category_key1">features_key</string>
+    <string name="app_pref_category2">App Configurations</string>
+    <string name="app_category_key2">configuration_key</string>
+
+    <string name="sms_config">Active SMS Configuration</string>
+    <string name="sms_config_key">notification_key</string>
+
+    <string name="app_version">App Version</string>
+    <string name="app_version_key">app_version_key</string>
+    <string name="current_app_version">4.0.1</string>
+    <string name="app_privacy_policy">Privacy Policy</string>
+    <string name="privacy_url">http://unchartedtech.work/privacy-policy</string>
+    <string name="user_guidance">Click to view App Privacy Policy</string>
+
+    <string name="auto_suggestion_feature">Auto Suggestion</string>
+    <string name="auto_suggestion_key">autosuggestion_key</string>
+    <string name="auto_suggestion_on">Currently Enabled, restart the app for the feature</string>
+    <string name="auto_suggestion_off">Currently Disabled, enabling it will request read contacts permission</string>
+
+    <string name="dialog_text">Do you want to enable auto suggestion feature for contact number ?</string>
+    <string name="helper_text_keyword">Separate with commas or spaces; any keyword hit triggers the alarm</string>
+
+    <string name="OnboardingTitle1">"ENTER KEYWORDS"</string>
+    <string name="OnboardingTitle2">"BELLGRAM"</string>
+    <string name="OnboardingTitle3">"PRIVACY"</string>
+
+    <string name="OnboardingDesc1">"Supports multiple keywords, informs when the user configured keyword is received via SMS".\n We need user approval to read incoming SMS in background to provide this feature"</string>
+    <string name="OnboardingDesc2">"Enables Notification even in silent mode for the configured keywords"</string>
+    <string name="OnboardingDesc3">"We follow all the android best practices to protect your privacy.We never collect and share data to anyone"</string>
+    <string name="prev">Back</string>
+    <string name="next">Next</string>
+    <string name="finish">Finish</string>
+
+    <!-- Hardcoded strings moved into resources for localization -->
+    <string name="contact_picker_title">Contact Picker</string>
+    <string name="contact_picker_message">Do you want to pick the contacts ?</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="input_format_error">Invalid number, expected 5-15 digits</string>
+    <string name="notif_title">Priority Message Received!</string>
+    <string name="notif_text">Received the text %1$s from %2$s</string>
+    <string name="notif_bigtext">Received the text %1$s from %2$s</string>
+    <string name="stop">STOP</string>
+    <string name="notif_summary">Press STOP to cancel</string>
+
+    <!-- More hardcoded UI strings moved into resources -->
+    <string name="channel_name">Priority SMS</string>
+    <string name="dialog_set">SET</string>
+    <string name="dialog_dismiss">DISMISS</string>
+    <string name="dialog_dont_show">Dont Show Again</string>
+    <string name="config_saved">saved the config to capture SMS packets</string>
+    <string name="keyword_empty">Keyword for alert is empty!</string>
+    <string name="enable_sms_perm">Enable READ SMS permission in App Permissions</string>
+    <string name="show_user_msg">Some permissions needs to be enabled to work properly</string>
+    <string name="enable_contact_perm">Enable Contacts permission for Auto Suggestion</string>
+    <string name="set_permissions">SET PERMISSIONS</string>
+    <string name="triggered">Alert is on</string>
+    <string name="cleared">Cleared</string>
+
+    <!-- Active configuration summary in settings -->
+    <string name="config_summary_header">Current Configuration:\nPhone number: </string>
+    <string name="not_configured"> Not Configured </string>
+    <string name="contact_name_label">\nContact Name: </string>
+    <string name="keywords_label">\nKeywords: </string>
+
+    <!-- 二次开发新增：号码输入提示与校验说明 -->
+    <string name="contact_helper">5-15 digits, country code allowed</string>
+    <string name="no_contact_app">No contacts app found on this device</string>
+
+    <!-- 二次开发新增：通知渠道说明（静音渠道 + 降级有声渠道） -->
+    <string name="channel_desc">Rings the alarm tone played by Bellgram itself</string>
+    <string name="channel_name_fallback">Priority SMS (fallback)</string>
+    <string name="channel_desc_fallback">Used only when the alert service cannot start</string>
+
+    <!-- 二次开发新增：最近命中记录 -->
+    <string name="hit_log">Recent matches</string>
+    <string name="hit_log_key">hit_log_key</string>
+    <string name="hit_log_empty">No match recorded yet. Send a test SMS to verify your rule.</string>
+    <string name="clear_hit_log">Clear match history</string>
+    <string name="clear_hit_log_key">clear_hit_log_key</string>
+    <string name="hit_log_cleared">Match history cleared</string>
+
+
+    <!-- 二次开发新增：重做界面所需文案 -->
+    <string name="app_tagline">Rings an alarm at full volume when an SMS with your keywords arrives, so a quiet notification tone never lets you miss it.</string>
+    <string name="status_idle">Not listening yet — enter at least one keyword, then tap "Turn on alert".</string>
+    <string name="status_listening">Listening · keywords: %1$s</string>
+    <!-- 二次开发新增：状态条上的提醒策略摘要 -->
+    <string name="status_mode">Reminder: %1$s</string>
+    <string name="mode_ring_on">alarm sound</string>
+    <string name="mode_ring_off">silent</string>
+    <string name="mode_vibrate_on">vibrate</string>
+    <string name="mode_vibrate_off">no vibration</string>
+    <string name="mode_repeat_unlimited">repeat every %1$d min until stopped</string>
+    <string name="mode_repeat_limited">repeat every %1$d min, %2$d alerts max</string>
+    <string name="permission_tip">Redmi / HyperOS checklist: ① Settings → Apps → Bellgram → Autostart = ON; ② Battery saver → No restrictions; ③ Notifications → allow lock screen &amp; floating notifications; ④ allow the "Receive SMS" permission. Without these MIUI may kill the app in the background and the alarm will not ring.</string>
+
+    <!-- 二次开发新增：提醒方式与重复策略 -->
+    <string name="pref_category_reminder">RULES &amp; REMINDER</string>
+    <string name="pref_category_reminder_key">reminder_key</string>
+
+    <string name="ring_enabled">Ring the alarm</string>
+    <string name="ring_enabled_key">ring_enabled</string>
+    <string name="ring_enabled_on">Alarm tone plays at max volume</string>
+    <string name="ring_enabled_off">Silent — only the notification / vibration will alert you</string>
+
+    <string name="vibrate_enabled">Vibrate</string>
+    <string name="vibrate_enabled_key">vibrate_enabled</string>
+    <string name="vibrate_enabled_on">Repeating vibration pattern while alerting</string>
+    <string name="vibrate_enabled_off">No vibration</string>
+
+    <string name="ring_duration_title">Ring duration per round</string>
+    <string name="ring_duration_key">ring_duration</string>
+    <string name="ring_duration_hint">If you pick "Until I stop it", repeat reminders are disabled.</string>
+
+    <string name="repeat_interval_title">Repeat every</string>
+    <string name="repeat_interval_key">repeat_interval</string>
+    <string name="repeat_interval_hint">Re-alerts when you have not tapped STOP.</string>
+
+    <string name="max_repeat_title">Repeat at most</string>
+    <string name="max_repeat_key">max_repeat</string>
+    <string name="max_repeat_hint">"Until I stop it" keeps ringing until you tap STOP.</string>
+
+    <!-- 二次开发新增：通知状态文案 -->
+    <string name="notif_status_round">Alert %1$d</string>
+    <string name="notif_status_wait">Alerted %1$d time(s), next in %2$d min</string>
+    <string name="notif_status_done">Finished after %1$d alert(s)</string>
+    <string name="notif_status_done_once">Finished</string>
+    <string name="notif_status_snoozed">Snoozed · alerts again in %1$d min</string>
+    <!-- 二次开发新增（借鉴短信铃铛）：匹配模式、夜间静音、规则演练、全屏告警 -->
+    <string name="match_all_title">Require every keyword</string>
+    <string name="match_all_key">match_all</string>
+    <string name="match_all_on">Alert only when ALL keywords appear (fewer false alarms)</string>
+    <string name="match_all_off">Alert when ANY keyword appears (original behaviour)</string>
+
+    <string name="quiet_hours_title">Quiet hours (vibrate only)</string>
+    <string name="quiet_hours_key">quiet_hours</string>
+    <string name="quiet_hours_hint">During this window the alarm stays silent and only vibration + notification alert you. Repeats still happen.</string>
+
+    <string name="practice_button">Test rule</string>
+    <string name="practice_title">Test the rule with a sample SMS</string>
+    <string name="practice_hint">Paste an SMS you would receive and see instantly whether it would be caught — before you rely on it.</string>
+    <string name="practice_input_hint">Sample SMS text</string>
+    <string name="practice_run">Test</string>
+    <string name="practice_hit">Matched · keyword \"%1$s\"</string>
+    <string name="practice_miss">Not matched · check the keywords or the matching mode</string>
+    <string name="practice_no_keyword">Fill in at least one keyword first</string>
+    <string name="practice_no_input">Paste a sample SMS first</string>
+
+    <string name="notif_snooze">Snooze</string>
+    <string name="alert_title">Bellgram</string>
+    <string name="alert_from">From %1$s</string>
+    <string name="alert_keyword">Matched keyword: %1$s</string>
+    <string name="alert_tip">Tap STOP to silence. Snooze silences now and alerts again later.</string>
+    <string name="alert_stop">STOP</string>
+    <string name="alert_snooze">SNOOZE</string>
+
+    <string name="mode_match_all">all keywords</string>
+    <string name="mode_match_any">any keyword</string>
+    <string name="mode_quiet">quiet %1$s (vibrate only)</string>
+    <!-- v4 合规改造：带闹铃音的主渠道 + Android 16 权限体检 -->
+    <string name="channel_name_audible">Priority SMS (alarm tone)</string>
+    <string name="channel_desc_audible">Rings the alarm tone immediately when a matching SMS arrives</string>
+    <string name="permission_check_key">permission_check</string>
+    <string name="permission_check_title">Permission check</string>
+    <string name="permission_check_summary">Check every system switch that can silence the alert</string>
+    <string name="permission_check_ready">All set</string>
+    <string name="permission_check_pending">%1$d item(s) need attention</string>
+    <string name="perm_item_sms">Receive SMS</string>
+    <string name="perm_item_sms_detail">Required to read incoming SMS and match your keywords</string>
+    <string name="perm_item_notification">Notifications</string>
+    <string name="perm_item_notification_detail">Android 13+ runtime permission plus the app notification switch</string>
+    <string name="perm_item_fsi">Full-screen alerts</string>
+    <string name="perm_item_fsi_detail">Android 14+ may revoke this by default; grant it under Special app access</string>
+    <string name="perm_item_battery">Battery optimization</string>
+    <string name="perm_item_battery_detail">Set to No restrictions on Redmi / HyperOS, or the alarm may be killed</string>
+    <string name="perm_item_alarm">Exact repeat alarms</string>
+    <string name="perm_item_alarm_detail">Uses setAlarmClock (user-visible alarm); no extra permission needed and works in Doze</string>
+    <string name="status_permission_warning">! %1$d permission item(s) not ready - tap the checklist below</string>
+    <string name="notif_permission_denied">Notifications are off - the alarm cannot be delivered</string>
+</resources>

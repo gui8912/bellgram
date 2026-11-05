@@ -1,0 +1,920 @@
+package com.saiga.find.messagefinder;
+
+import android.Manifest;
+import android.content.ComponentName;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.ContactsContract;
+import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextUtils;
+import android.text.TextWatcher;
+import android.transition.Slide;
+import android.util.Log;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.animation.DecelerateInterpolator;
+import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
+import android.widget.AutoCompleteTextView;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.FilterQueryProvider;
+import android.widget.SimpleCursorAdapter;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.coordinatorlayout.widget.CoordinatorLayout;
+import androidx.core.content.ContextCompat;
+
+import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.textfield.TextInputLayout;
+
+import java.util.List;
+import java.util.Set;
+
+import static android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
+
+/**
+ * 主界面：录入“号码（可选）+ 关键词（必填）”，保存为触发优先提醒的规则。
+ *
+ * <p>本次修改的要点（均以 // modified 标注）：
+ * <ul>
+ *   <li>onCreate 在引导页分支直接 return，不再继续执行已 finish 界面的初始化；</li>
+ *   <li>号码长度限制由“最多 10 位”改为 5-15 位，修复中国大陆 11 位手机号无法录入的问题；</li>
+ *   <li>关键词解析交给 {@link KeywordMatcher}，兼容全角逗号/空格；</li>
+ *   <li>通讯录游标使用 try-with-resources 关闭，修复 Cursor 泄漏；</li>
+ *   <li>权限回调时从界面重新读取输入，避免字段为 null 导致 NPE；</li>
+ *   <li>Handler / 延迟弹窗做生命周期校验，避免界面销毁后回调崩溃。</li>
+ * </ul>
+ */
+public class MainActivity extends AppCompatActivity implements View.OnClickListener, TextWatcher {
+
+    private static final String TAG = "Sms Receiver";
+
+    private static final String SMS_PERMISSION = Manifest.permission.RECEIVE_SMS;
+    private static final String READ_CONTACTS_PERMISSION = Manifest.permission.READ_CONTACTS;
+
+    /** 打开系统通讯录选择器的请求码。 */
+    private static final int RESULT_PICK_CONTACT = 125;
+    /** 短信权限请求码。 */
+    private static final int PERM_SMS_REQUEST = 123;
+    /** 联系人权限请求码。 */
+    private static final int PERM_CONTACTS_REQUEST = 124;
+    /** modified: Android 13+ 通知运行时权限请求码。 */
+    private static final int PERM_NOTIFICATIONS_REQUEST = 126;
+    /** 自动联想授权提示框延迟出现的毫秒数（让界面先稳定下来）。 */
+    private static final long CONTACT_DIALOG_DELAY_MS = 1500L;
+    /** 跳转系统设置页前的延迟毫秒数（等待 Snackbar 收起）。 */
+    private static final long NAVIGATE_SETTINGS_DELAY_MS = 250L;
+
+    private Button trigButton;
+    private Button clearButton;
+    private CoordinatorLayout userMessageLayout;
+    private TextInputLayout contactNumberLayout;
+
+    private SimpleCursorAdapter contactAdapter;
+    private Snackbar smsPermSnackbar;
+
+    private AppConfig appConfig;
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+
+    /** 自动联想是否已被用户关闭（用于决定“是否弹通讯录选择器”）。 */
+    private boolean isAutoSuggestionDisabled = false;
+    /** 引导页是否在本进程启动时展示过；为 true 时不在主界面抢焦点弹权限框。 */
+    private static boolean showOnboarding = false;
+    /** 用户是否已经从通讯录选过联系人（避免反复弹“要不要选择联系人”）。 */
+    private boolean isContactPicked = false;
+    /** 本次会话是否已经问过“要不要从通讯录选择”，避免每次聚焦都弹一次。 */
+    private boolean contactPickerAsked = false; // modified: 修复反复弹框打扰用户
+    /** 界面是否来自配置变更重建，用于避免重复弹权限说明框。 */
+    private boolean restoredFromState = false;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        // 先切主题再 super.onCreate：保证窗口背景不是启动图
+        setTheme(R.style.MyAppTheme);
+        super.onCreate(savedInstanceState);
+        restoredFromState = savedInstanceState != null;
+
+        // 结构控制：首次安装时进入引导页，引导完成后禁用 Onboarding 组件
+        if (isOnboardingEnabled()) {
+            Log.d(TAG, "onboarding enabled, launch it");
+            showOnboarding = true;
+            startActivity(new Intent(this, Onboarding.class));
+            finish();
+            return; // modified: 提前返回，避免继续初始化一个已 finish 的界面
+        }
+        showOnboarding = false;
+
+        // 从引导页进入主界面时播放一次滑入动画
+        slideAnimation();
+        setContentView(R.layout.activity_main);
+        // modified: targetSdk 35+ 强制 edge-to-edge，内容必须避开系统栏与挖孔
+        EdgeToEdgeHelper.apply(this, R.id.user_message_layout);
+        // modified: targetSdk 33+ 的 POST_NOTIFICATIONS 属于运行时权限，不申请则通知完全发不出去
+        ensureNotificationPermission();
+        bindPermissionChecklist(); // modified: 底部清单可点，直达权限体检
+
+        appConfig = AppConfig.get(this); // modified: 用实例替代原来的 static SharedPreferences
+
+        trigButton = findViewById(R.id.trigger);
+        clearButton = findViewById(R.id.clear);
+        userMessageLayout = findViewById(R.id.user_message_layout);
+
+        // 监听号码输入：格式不合法时禁用“启动”按钮并给出错误提示
+        contactNumberLayout = findViewById(R.id.contact_input_layout);
+        EditText contactEditText = contactNumberLayout == null ? null : contactNumberLayout.getEditText();
+        if (contactEditText != null) {
+            contactEditText.addTextChangedListener(this);
+        } else {
+            Log.w(TAG, "contact input layout without edit text, validation disabled");
+        }
+
+        final AutoCompleteTextView contactTextView = findViewById(R.id.contact_value);
+        // 焦点变化时，按状态决定是否提示“从通讯录选择联系人”
+        contactTextView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean hasFocus) {
+                if (!hasFocus) {
+                    return;
+                }
+                boolean shouldAsk = (isAutoSuggestionDisabled || appConfig.isAutoSuggestionDisabled())
+                        && !isContactPicked && !contactPickerAsked; // modified: 会话内只问一次
+                if (!shouldAsk) {
+                    return;
+                }
+                contactPickerAsked = true;
+                showContactPickerDialog();
+            }
+        });
+
+        // 自动联想开启时才初始化游标适配器（默认关闭）
+        if (!appConfig.isAutoSuggestionDisabled()) {
+            setupContactAdapter();
+            if (contactAdapter != null) {
+                contactTextView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                        TextView contactTitle = view.findViewById(R.id.contact_title);
+                        if (contactTitle != null) {
+                            appConfig.saveContactName(contactTitle.getText().toString());
+                            Log.d(TAG, "selected phone contact " + contactTitle.getText());
+                        }
+                    }
+                });
+                contactAdapter.setCursorToStringConverter(new SimpleCursorAdapter.CursorToStringConverter() {
+                    @Override
+                    public CharSequence convertToString(Cursor cursor) {
+                        if (cursor == null) {
+                            return "";
+                        }
+                        int index = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+                        if (index < 0) {
+                            return "";
+                        }
+                        // 去掉空格、横线与国际区号，统一成国内习惯的 11 位号码
+                        return PhoneNumbers.canonical(cursor.getString(index)); // modified: 替换原 spliceNumber
+                    }
+                });
+                contactTextView.setAdapter(contactAdapter);
+            }
+            if (checkReadContactPermission()) {
+                setFilter();
+            }
+        }
+
+        clearButton.setOnClickListener(this);
+        trigButton.setOnClickListener(this);
+        // 二次开发新增：主界面直接提供“提醒方式与重复”入口
+        View reminderSettings = findViewById(R.id.reminder_settings);
+        if (reminderSettings != null) {
+            reminderSettings.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    try {
+                        startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+                    } catch (Exception e) {
+                        Log.e(TAG, "open settings failed", e);
+                    }
+                }
+            });
+        }
+        // 二次开发新增：「规则演练」入口（借鉴短信铃铛）
+        View practiceButton = findViewById(R.id.practice_rule);
+        if (practiceButton != null) {
+            practiceButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    showPracticeDialog();
+                }
+            });
+        }
+        // 状态条统一在 onResume 中刷新（onCreate 之后必然执行，避免重复调用）
+    }
+
+    /**
+     * Android 13(API 33)+ 通知权限必须在运行时申请。
+     *
+     * <p>targetSdk 36 下如果漏掉这一步，{@code NotificationManagerCompat.notify()} 会抛
+     * SecurityException，结果就是「短信匹配上了，但一条通知都没有」——这是升级 targetSdk
+     * 后最常见的静默失败。同时提前建好通知渠道，避免第一条短信到达时才创建渠道造成延迟。
+     */
+    private void ensureNotificationPermission() { // modified: 新增
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "request POST_NOTIFICATIONS permission");
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                        PERM_NOTIFICATIONS_REQUEST);
+            }
+        }
+        NotificationHelper.ensureChannels(this);
+    }
+
+    /** 底部「权限 / 保活清单」可点击，直接打开权限体检对话框。 */
+    private void bindPermissionChecklist() { // modified: 新增
+        View tip = findViewById(R.id.permission_tip);
+        if (tip != null) {
+            tip.setOnClickListener(view -> PermissionChecker.showDialog(MainActivity.this));
+            tip.setClickable(true);
+        }
+    }
+
+    /**
+     * 刷新顶部状态条：让用户一眼看出「现在到底有没有在监听」。
+     *
+     * <p>原界面只有按钮文案（“启动！”/“已启动！”）暗示状态，重启应用后无法判断
+     * 之前保存的规则是否仍然生效——这是这类“后台静默工作”的应用最常见的困惑点。
+     */
+    private void updateStatusUi() { // modified: 新增
+        TextView statusText = findViewById(R.id.status_text);
+        if (statusText == null || appConfig == null) {
+            return;
+        }
+        Set<String> keywords = appConfig.getKeywords();
+        String modeSummary = getString(R.string.status_mode, buildReminderModeSummary()); // modified: 追加提醒策略
+        if (keywords.isEmpty()) {
+            statusText.setText(getString(R.string.status_idle) + "\n" + modeSummary);
+            statusText.setTextColor(getColor(R.color.status_idle_text));
+            statusText.setBackgroundResource(R.drawable.bg_status_idle);
+        } else {
+            statusText.setText(getString(R.string.status_listening, TextUtils.join(" / ", keywords))
+                    + "\n" + modeSummary);
+            statusText.setTextColor(getColor(R.color.status_active_text));
+            statusText.setBackgroundResource(R.drawable.bg_status_active);
+        }
+        // modified: 权限不齐全时，状态条直接给出警示，避免用户以为「已经在监听」却收不到提醒
+        int missing = PermissionChecker.missingCount(this);
+        if (missing > 0) {
+            statusText.append("\n" + getString(R.string.status_permission_warning, missing));
+            statusText.setTextColor(getColor(R.color.alert_accent));
+        }
+    }
+
+    /**
+     * 把“响铃 / 震动 / 重复策略”拼成一行人话，直接显示在状态条里。
+     *
+     * <p>为什么要显示：重复提醒是本轮新增的核心能力，但它的配置藏在设置页里。
+     * 如果主界面看不到当前策略，用户会怀疑“到底会不会 5 分钟再响一次”，
+     * 只能反复进设置页确认。
+     *
+     * @return 例如“闹钟铃声 · 震动 · 每 5 分钟重复（最多 4 次）”
+     */
+    private String buildReminderModeSummary() { // modified: 新增
+        StringBuilder summary = new StringBuilder();
+        // 先讲“什么算命中”，再讲“怎么提醒”，与设置页的顺序一致
+        summary.append(getString(appConfig.isMatchAllEnabled()
+                ? R.string.mode_match_all : R.string.mode_match_any));
+        summary.append(" · ");
+        summary.append(getString(appConfig.isRingEnabled()
+                ? R.string.mode_ring_on : R.string.mode_ring_off));
+        summary.append(" · ");
+        summary.append(getString(appConfig.isVibrateEnabled()
+                ? R.string.mode_vibrate_on : R.string.mode_vibrate_off));
+
+        int durationSec = appConfig.getRingDurationSec();
+        int intervalMin = appConfig.getRepeatIntervalMin();
+        int maxRepeat = appConfig.getMaxRepeatCount();
+        if (durationSec > 0 && intervalMin > 0) {
+            summary.append(" · ");
+            // “最多重复 N 次”= 首次 1 轮 + 重复 N 轮，展示时换算成总轮次更直观
+            summary.append(maxRepeat <= 0
+                    ? getString(R.string.mode_repeat_unlimited, intervalMin)
+                    : getString(R.string.mode_repeat_limited, intervalMin, maxRepeat + 1));
+        }
+
+        // 夜间静音时段：让用户知道“半夜不会响”这件事是生效的
+        String quietRange = QuietHours.describe(appConfig.getQuietStartHour(), appConfig.getQuietEndHour());
+        if (!quietRange.isEmpty()) {
+            summary.append(" · ").append(getString(R.string.mode_quiet, quietRange));
+        }
+        return summary.toString();
+    }
+
+    // ==================== 规则演练（借鉴短信铃铛） ====================
+
+    /**
+     * 打开「规则演练」弹窗：粘一段示例短信，立刻看到它会不会被拦住。
+     *
+     * <p>为什么这个功能值得做：本应用是“静默工作”的，规则写错时**没有任何反馈**——
+     * 关键词写宽了天天误报，写严了永远不响，而用户只有在真的错过重要短信之后才会发现。
+     * 演练把这份不确定性提前暴露出来，代价只有一个输入框。
+     */
+    private void showPracticeDialog() { // modified: 新增
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        View content = LayoutInflater.from(this).inflate(R.layout.dialog_practice, null, false);
+        final TextView resultView = content.findViewById(R.id.practice_result);
+        TextInputLayout inputLayout = content.findViewById(R.id.practice_input_layout);
+        final EditText input = inputLayout == null ? null : inputLayout.getEditText();
+        if (input != null) {
+            // 边输边判：用户不用先找按钮，粘完就知道结果
+            input.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+                    // 无需处理
+                }
+
+                @Override
+                public void onTextChanged(CharSequence text, int start, int before, int count) {
+                    // 无需处理
+                }
+
+                @Override
+                public void afterTextChanged(Editable editable) {
+                    evaluatePractice(editable == null ? "" : editable.toString(), resultView);
+                }
+            });
+        }
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.practice_title)
+                .setView(content)
+                // 传入 null 后手动接管点击，避免“点一下弹窗就关掉、看不到结果”
+                .setPositiveButton(R.string.practice_run, null)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+        dialog.show();
+        View runButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        if (runButton != null) {
+            runButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    evaluatePractice(input == null ? "" : input.getText().toString(), resultView);
+                }
+            });
+        }
+        evaluatePractice("", resultView);
+    }
+
+    /**
+     * 用当前规则对示例短信做一次匹配，并把结果写回弹窗。
+     *
+     * @param sample     示例短信内容
+     * @param resultView 结果展示控件
+     */
+    private void evaluatePractice(String sample, TextView resultView) { // modified: 新增
+        if (resultView == null || appConfig == null) {
+            return;
+        }
+        Set<String> keywords = appConfig.getKeywords();
+        if (keywords.isEmpty()) {
+            resultView.setText(R.string.practice_no_keyword);
+            resultView.setTextColor(getColor(R.color.text_secondary));
+            return;
+        }
+        if (TextUtils.isEmpty(sample) || TextUtils.isEmpty(sample.trim())) {
+            resultView.setText(R.string.practice_no_input);
+            resultView.setTextColor(getColor(R.color.text_secondary));
+            return;
+        }
+        // 与 SMSReceiver 使用同一个匹配入口、同一套模式，演练结果才可信
+        String hit = KeywordMatcher.findMatch(keywords, sample, appConfig.isMatchAllEnabled());
+        if (hit != null) {
+            resultView.setText(getString(R.string.practice_hit, hit));
+            resultView.setTextColor(getColor(R.color.status_active_text));
+        } else {
+            resultView.setText(R.string.practice_miss);
+            resultView.setTextColor(getColor(R.color.alert_accent));
+        }
+    }
+
+    /**
+     * @return Onboarding 组件是否仍处于启用状态（即用户还没走完引导流程）
+     */
+    private boolean isOnboardingEnabled() { // modified: 抽出方法，逻辑更直观
+        int enabled = getPackageManager()
+                .getComponentEnabledSetting(new ComponentName(this, Onboarding.class));
+        return enabled == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                || enabled == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.settings_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.settings_menu) {
+            startActivity(new Intent(this, SettingsActivity.class));
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * 读取系统通讯录选择器返回的联系人号码。
+     */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || requestCode != RESULT_PICK_CONTACT) {
+            return;
+        }
+        if (data == null || data.getData() == null) { // modified: 空 data 保护
+            Log.w(TAG, "contact picker returned no data");
+            return;
+        }
+        Uri pickedItem = data.getData();
+        // try-with-resources：保证 Cursor 一定被关闭（原实现泄漏游标）
+        try (Cursor cursor = getContentResolver().query(pickedItem, null, null, null, null)) { // modified: 修复 Cursor 泄漏
+            if (cursor == null || !cursor.moveToFirst()) {
+                Log.w(TAG, "contact picker returned empty cursor");
+                return;
+            }
+            int nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
+            int numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+            if (numberIndex < 0) {
+                Log.w(TAG, "contact cursor without number column");
+                return;
+            }
+            String contactName = nameIndex >= 0 ? cursor.getString(nameIndex) : null;
+            String phoneNumber = cursor.getString(numberIndex);
+            EditText contactView = findEditText(R.id.contact_value);
+            // modified: 【独立复审修正】原实现未判空
+            if (contactView != null) {
+                contactView.setText(PhoneNumbers.canonical(phoneNumber)); // modified: 11 位国内号码
+            } else {
+                Log.w(TAG, "contact input view missing, picked number not applied");
+            }
+            appConfig.saveContactName(contactName);
+            // 用户已成功选过联系人，后续不再打扰
+            isContactPicked = true;
+            contactPickerAsked = true;
+        } catch (Exception e) {
+            // 部分 ROM 的通讯录 Provider 会抛 SecurityException / IllegalArgumentException
+            Log.e(TAG, "read picked contact failed", e);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume(); // modified: 【独立复审修正】原实现把 super.onResume() 放在最后，不符合生命周期约定
+        // 让根布局先拿到焦点，避免横竖屏切换时输入法自动弹出
+        View root = findViewById(R.id.ui_layout);
+        if (root != null) {
+            root.requestFocus();
+        }
+        updateStatusUi(); // modified: 从设置页返回时同步状态
+    }
+
+    @Override
+    public void onClick(View v) {
+        int id = v.getId();
+        if (id == R.id.trigger) {
+            handleTrigger();
+        } else if (id == R.id.clear) {
+            handleClear();
+        }
+    }
+
+    /** “启动”按钮：校验 -> 请求权限 -> 保存配置。 */
+    private void handleTrigger() { // modified: 拆分职责，避免 onClick 过长
+        String contactRaw = getTextOf(R.id.contact_value);
+        String messageRaw = getTextOf(R.id.message_value);
+
+        clearSoftKeyboardState();
+        clearFocusOfForm();
+
+        List<String> keywords = KeywordMatcher.parseKeywords(messageRaw); // modified: 全角分隔符兼容
+        if (keywords.isEmpty()) {
+            showSnackbar(R.string.keyword_empty);
+            return;
+        }
+        if (!TextUtils.isEmpty(contactRaw) && !PhoneNumbers.isValidInput(contactRaw)) {
+            // 原实现只在输入框里飘红，但仍允许保存，导致规则里存了脏号码
+            showSnackbar(R.string.input_format_error); // modified: 非法号码直接拦下
+            return;
+        }
+        if (!ensureSmsPermission()) {
+            // 权限未授予：等 onRequestPermissionsResult 回调后再保存
+            return;
+        }
+        saveConfig(contactRaw, keywords);
+    }
+
+    /** “清除”按钮：清空配置与输入框。 */
+    private void handleClear() {
+        clearSoftKeyboardState();
+        appConfig.clear(); // modified: 统一走 AppConfig，避免漏删键
+        // 注意：这里不清空“最近命中记录”。日志属于排障信息，与配置解耦，
+        // 由设置页的“清空命中记录”单独管理，避免误删历史。
+
+        EditText contactView = findEditText(R.id.contact_value);
+        EditText messageView = findEditText(R.id.message_value);
+        // modified: 【独立复审修正】原实现直接调用 getText().clear()，
+        // findViewById 返回 null（布局被裁剪 / 换肤替换控件）时会 NPE。
+        if (messageView != null && messageView.getText() != null) {
+            messageView.getText().clear();
+        }
+        if (contactView != null && contactView.getText() != null) {
+            contactView.getText().clear();
+            contactView.clearFocus();
+        }
+        if (messageView != null) {
+            messageView.clearFocus();
+        }
+
+        clearButton.setText(R.string.cleared);
+        trigButton.setText(R.string.trigger_button);
+        setTriggerEnabled(true);
+        updateStatusUi(); // modified
+    }
+
+    /** 读取输入框文本，永不返回 null。 */
+    private String getTextOf(int viewId) { // modified: 统一空值处理
+        EditText editText = findEditText(viewId);
+        if (editText == null || editText.getText() == null) {
+            return "";
+        }
+        return editText.getText().toString().trim();
+    }
+
+    /**
+     * 安全地取输入框。
+     *
+     * <p>modified: 【独立复审修正】新增。原代码在 handleClear / clearFocusOfForm /
+     * onActivityResult 里直接对 findViewById 的结果调用方法，没有判空——
+     * 一旦布局被裁剪或控件被替换，就是一次 NPE 崩溃。
+     */
+    @Nullable
+    private EditText findEditText(int viewId) {
+        View view = findViewById(viewId);
+        return view instanceof EditText ? (EditText) view : null;
+    }
+
+    private void clearFocusOfForm() {
+        EditText contactView = findEditText(R.id.contact_value);
+        EditText messageView = findEditText(R.id.message_value);
+        if (contactView != null) {
+            contactView.clearFocus();
+        }
+        if (messageView != null) {
+            messageView.clearFocus();
+        }
+    }
+
+    /**
+     * 保存配置并给出 UI 反馈。
+     *
+     * @param contact  号码，空串表示不限
+     * @param keywords 关键词列表
+     */
+    private void saveConfig(String contact, List<String> keywords) { // modified: 参数化，替代依赖成员变量的旧实现
+        appConfig.save(contact, keywords);
+        showSnackbar(R.string.config_saved);
+        trigButton.setText(R.string.triggered);
+        clearButton.setText(R.string.clear_button);
+        updateStatusUi(); // modified
+    }
+
+    private void showSnackbar(int stringResId) {
+        if (userMessageLayout != null) {
+            Snackbar.make(userMessageLayout, stringResId, Snackbar.LENGTH_LONG).show();
+        }
+    }
+
+    /**
+     * 检查短信接收权限；未授予时发起请求。
+     *
+     * @return true 表示已授予
+     */
+    private boolean ensureSmsPermission() {
+        if (ContextCompat.checkSelfPermission(getApplicationContext(), SMS_PERMISSION)
+                == PackageManager.PERMISSION_GRANTED) {
+            return true;
+        }
+        Log.d(TAG, "request RECEIVE_SMS permission");
+        requestPermissions(new String[]{SMS_PERMISSION}, PERM_SMS_REQUEST);
+        return false;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+
+        if (requestCode == PERM_NOTIFICATIONS_REQUEST) { // modified: 新增通知权限回调
+            if (!granted) {
+                showSnackbar(R.string.notif_permission_denied);
+            }
+            updateStatusUi();
+            return;
+        }
+
+        if (requestCode == PERM_SMS_REQUEST) {
+            if (granted) {
+                // 权限授予后，重新读取界面输入再保存，避免使用可能已失效的成员变量
+                String contactRaw = getTextOf(R.id.contact_value);
+                List<String> keywords = KeywordMatcher.parseKeywords(getTextOf(R.id.message_value));
+                if (keywords.isEmpty()) {
+                    showSnackbar(R.string.keyword_empty);
+                    return;
+                }
+                saveConfig(contactRaw, keywords); // modified: 从界面重新取值，修复 NPE 与脏数据
+            } else if (shouldExplainDenied(SMS_PERMISSION)) {
+                showPermissionSnackbar(R.string.enable_sms_perm);
+            } else {
+                showSnackbar(R.string.show_user_msg);
+            }
+            return;
+        }
+
+        if (requestCode == PERM_CONTACTS_REQUEST) {
+            if (granted) {
+                setFilter();
+            } else if (shouldExplainDenied(READ_CONTACTS_PERMISSION)) {
+                showPermissionSnackbar(R.string.enable_contact_perm);
+            } else {
+                showSnackbar(R.string.show_user_msg);
+            }
+        }
+    }
+
+    /**
+     * 用户勾选“不再询问”并拒绝时返回 true，此时需要引导用户去系统设置页手动开启。
+     */
+    private boolean shouldExplainDenied(String permission) { // modified: 抽出重复的判断逻辑
+        return !shouldShowRequestPermissionRationale(permission);
+    }
+
+    private void showPermissionSnackbar(int messageResId) {
+        if (userMessageLayout == null) {
+            return;
+        }
+        smsPermSnackbar = Snackbar.make(userMessageLayout, messageResId, Snackbar.LENGTH_INDEFINITE)
+                .setAction(R.string.set_permissions, new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        navigateToAppPermissions();
+                    }
+                })
+                .setActionTextColor(getColor(R.color.primaryTextColor));
+        smsPermSnackbar.show();
+    }
+
+    /** 一次性滑入动画（从引导页进入时使用）。 */
+    private void slideAnimation() {
+        Slide slide = new Slide();
+        slide.setSlideEdge(Gravity.END);
+        slide.setDuration(400);
+        slide.setInterpolator(new DecelerateInterpolator());
+        getWindow().setEnterTransition(slide);
+        getWindow().setExitTransition(slide);
+    }
+
+    private void clearSoftKeyboardState() {
+        InputMethodManager inputMethodManager =
+                (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        View focusedView = getCurrentFocus();
+        if (inputMethodManager != null && focusedView != null) {
+            inputMethodManager.hideSoftInputFromWindow(focusedView.getWindowToken(), 0);
+        }
+    }
+
+    /** 跳转本应用的系统权限设置页。 */
+    private void navigateToAppPermissions() {
+        if (smsPermSnackbar != null) {
+            smsPermSnackbar.dismiss();
+            smsPermSnackbar = null;
+        }
+        uiHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                try {
+                    Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", getPackageName(), null));
+                    // 打开后不进入返回栈，用户从设置页返回时直接回到桌面/本应用
+                    intent.setFlags(FLAG_ACTIVITY_NEW_DOCUMENT | Intent.FLAG_ACTIVITY_NO_HISTORY);
+                    startActivity(intent);
+                } catch (Exception e) {
+                    Log.e(TAG, "open app settings failed", e);
+                }
+            }
+        }, NAVIGATE_SETTINGS_DELAY_MS);
+    }
+
+    /** 创建“联系人 → 列表项”的游标适配器。 */
+    private void setupContactAdapter() {
+        String[] uiBindFrom = {
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER
+        };
+        int[] uiBindTo = {R.id.contact_title, R.id.contact_number};
+        contactAdapter = new SimpleCursorAdapter(this, R.layout.contacts_view, null,
+                uiBindFrom, uiBindTo, 0);
+    }
+
+    /**
+     * 检查联系人权限；未授予时延迟弹出“是否开启自动联想”的说明框。
+     *
+     * @return true 表示已授予
+     */
+    private boolean checkReadContactPermission() {
+        if (ContextCompat.checkSelfPermission(getApplicationContext(), READ_CONTACTS_PERMISSION)
+                == PackageManager.PERMISSION_GRANTED) {
+            return true;
+        }
+        // 引导页刚结束时不要立刻弹框抢焦点；配置变更重建时也不要重复弹
+        if (showOnboarding || restoredFromState) { // modified: 生命周期校验
+            return false;
+        }
+        uiHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (isFinishing() || isDestroyed() || isStateSaved()) {
+                    Log.d(TAG, "activity not ready, skip permission dialog");
+                    return;
+                }
+                try {
+                    new MyDialogFragment().show(getSupportFragmentManager(), "AutoSuggestion");
+                } catch (Exception e) {
+                    // FragmentManager 已保存状态时会抛 IllegalStateException
+                    Log.e(TAG, "show permission dialog failed", e);
+                }
+            }
+        }, CONTACT_DIALOG_DELAY_MS);
+        return false;
+    }
+
+    private boolean isStateSaved() {
+        return getSupportFragmentManager().isStateSaved(); // modified: 防止 IllegalStateException
+    }
+
+    /** 由 {@link MyDialogFragment} 在用户点“设置”后调用。 */
+    void requestContactPermission() {
+        Log.d(TAG, "request READ_CONTACTS permission");
+        requestPermissions(new String[]{READ_CONTACTS_PERMISSION}, PERM_CONTACTS_REQUEST);
+    }
+
+    /** 由 {@link MyDialogFragment} 调用：记录“不再提示自动联想”。 */
+    void setUserConfig(boolean disabled) {
+        appConfig.setAutoSuggestionDisabled(disabled);
+    }
+
+    /** 由 {@link MyDialogFragment} 调用：记录用户本次选择（关闭说明框后改用通讯录选择器）。 */
+    public void setPopup(boolean disabled) {
+        isAutoSuggestionDisabled = disabled;
+    }
+
+    /** 附加到号码输入框的过滤查询（自动联想用）。 */
+    private void setFilter() {
+        if (contactAdapter == null) {
+            // 未开启自动联想时 contactAdapter 为 null，此时收到权限回调不能继续
+            Log.d(TAG, "contact adapter not ready, skip filter setup"); // modified: 修复 NPE
+            return;
+        }
+        contactAdapter.setFilterQueryProvider(new FilterQueryProvider() {
+            @Override
+            public Cursor runQuery(CharSequence constraint) {
+                if (constraint == null || constraint.toString().trim().isEmpty()) {
+                    return null;
+                }
+                String[] projection = {
+                        ContactsContract.CommonDataKinds.Phone._ID,
+                        ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                        ContactsContract.CommonDataKinds.Phone.NUMBER
+                };
+                String selection = ContactsContract.CommonDataKinds.Phone.NUMBER + " LIKE ?";
+                String[] selectionArgs = {"%" + constraint.toString().trim() + "%"};
+                try {
+                    return getContentResolver().query(
+                            ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                            projection, selection, selectionArgs,
+                            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC");
+                } catch (Exception e) {
+                    Log.e(TAG, "query contacts failed", e);
+                    return null;
+                }
+            }
+        });
+    }
+
+    /** 显示“要不要从通讯录选择联系人”的对话框。 */
+    private void showContactPickerDialog() { // modified: 从匿名内部类抽出，便于复用与生命周期保护
+        if (isFinishing() || isDestroyed()) {
+            return;
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.MyDialogTheme);
+        builder.setTitle(R.string.contact_picker_title);
+        builder.setIcon(R.drawable.ic_contact_phone_black_24dp);
+        builder.setMessage(R.string.contact_picker_message);
+        builder.setPositiveButton(R.string.yes, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                try {
+                    Intent contactPicker = new Intent(Intent.ACTION_PICK,
+                            ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+                    startActivityForResult(contactPicker, RESULT_PICK_CONTACT);
+                } catch (Exception e) {
+                    // 设备上没有任何通讯录应用时会抛 ActivityNotFoundException
+                    Log.e(TAG, "no contact picker available", e);
+                    showSnackbar(R.string.no_contact_app);
+                }
+            }
+        });
+        builder.setNegativeButton(R.string.no, null);
+        builder.create().show();
+    }
+
+    private void setTriggerEnabled(boolean enabled) { // modified: 用透明度表示禁用，替代直接改背景色
+        if (trigButton == null) {
+            return;
+        }
+        trigButton.setEnabled(enabled);
+        trigButton.setAlpha(enabled ? 1.0f : 0.5f);
+    }
+
+    @Override
+    public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+        // 无需处理
+    }
+
+    @Override
+    public void onTextChanged(CharSequence s, int start, int before, int count) {
+        if (contactNumberLayout == null) {
+            return;
+        }
+        String value = s == null ? "" : s.toString().trim();
+        // 允许为空（表示不限号码）；非空时必须符合 5-15 位数字（可带首部 +）
+        boolean invalid = !value.isEmpty() && !PhoneNumbers.isValidInput(value); // modified: 原正则会把 11 位手机号判为非法
+        if (invalid) {
+            contactNumberLayout.setError(getString(R.string.input_format_error));
+            contactNumberLayout.setErrorEnabled(true);
+            contactNumberLayout.setErrorIconDrawable(R.drawable.ic_block_24dp);
+            contactNumberLayout.setErrorIconOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    EditText editText = contactNumberLayout.getEditText();
+                    if (editText != null && editText.getText() != null) {
+                        editText.getText().clear();
+                    }
+                }
+            });
+            setTriggerEnabled(false);
+        } else {
+            contactNumberLayout.setErrorEnabled(false);
+            contactNumberLayout.setHelperTextEnabled(true);
+            setTriggerEnabled(true);
+        }
+    }
+
+    @Override
+    public void afterTextChanged(Editable editable) {
+        // 无需处理
+    }
+
+    @Override
+    protected void onDestroy() {
+        // 移除所有延迟任务，避免界面销毁后回调仍然执行
+        uiHandler.removeCallbacksAndMessages(null); // modified: 修复 Handler 泄漏与销毁后回调
+        if (contactNumberLayout != null) {
+            EditText editText = contactNumberLayout.getEditText();
+            if (editText != null) {
+                editText.removeTextChangedListener(this);
+            }
+        }
+        super.onDestroy();
+    }
+}

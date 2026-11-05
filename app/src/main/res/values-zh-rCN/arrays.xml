@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 二次开发新增：提醒方式与重复策略的可选项（中文） -->
+<resources>
+    <string-array name="ring_duration_entries">
+        <item>直到我手动停止</item>
+        <item>30 秒</item>
+        <item>60 秒</item>
+        <item>2 分钟</item>
+    </string-array>
+    <string-array name="ring_duration_values">
+        <item>0</item>
+        <item>30</item>
+        <item>60</item>
+        <item>120</item>
+    </string-array>
+
+    <string-array name="repeat_interval_entries">
+        <item>不重复</item>
+        <item>1 分钟</item>
+        <item>3 分钟</item>
+        <item>5 分钟</item>
+        <item>10 分钟</item>
+    </string-array>
+    <string-array name="repeat_interval_values">
+        <item>0</item>
+        <item>1</item>
+        <item>3</item>
+        <item>5</item>
+        <item>10</item>
+    </string-array>
+
+    <string-array name="max_repeat_entries">
+        <item>直到我手动停止（不限）</item>
+        <item>1 次</item>
+        <item>3 次</item>
+        <item>5 次</item>
+        <item>10 次</item>
+    </string-array>
+    <string-array name="max_repeat_values">
+        <item>0</item>
+        <item>1</item>
+        <item>3</item>
+        <item>5</item>
+        <item>10</item>
+    </string-array>
+    <string-array name="quiet_hours_entries">
+        <item>关闭</item>
+        <item>21:00–07:00</item>
+        <item>22:00–07:00</item>
+        <item>23:00–08:00</item>
+        <item>00:00–06:00</item>
+    </string-array>
+    <string-array name="quiet_hours_values">
+        <item>off</item>
+        <item>21-7</item>
+        <item>22-7</item>
+        <item>23-8</item>
+        <item>0-6</item>
+    </string-array>
+</resources>

@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  二次开发（modified）：主界面重做视觉层，业务逻辑与所有控件 id 保持不变。
+  设计要点：
+    · 卡片式分组：把“号码 / 关键词”收进一张白卡，信息层级更清晰；
+    · 去掉原来铺满整屏的渐变背景与飘在半空的按钮，改为浅灰底 + 白卡 + 主次分明的两个按钮；
+    · 新增状态条（status_text）：一眼看出“现在到底有没有在监听”；
+    · 保留全部原有 id：ui_layout / user_message_layout / contact_input_layout /
+      contact_value / message_value / trigger / clear 等，Java 侧无需改 View 查找逻辑。
+-->
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/user_message_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/surface_bg"
+    tools:context=".MainActivity">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <!-- 根容器先拿焦点，避免横竖屏切换时输入法自动弹出 -->
+        <LinearLayout
+            android:id="@+id/ui_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:focusableInTouchMode="true"
+            android:descendantFocusability="beforeDescendants"
+            android:paddingStart="16dp"
+            android:paddingTop="20dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="28dp">
+
+            <!-- ===== 标题区 ===== -->
+            <TextView
+                android:id="@+id/headline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/app_name"
+                android:textColor="@color/text_primary"
+                android:textSize="26sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tagline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/app_tagline"
+                android:textColor="@color/text_secondary"
+                android:textSize="14sp" />
+
+            <!-- ===== 规则卡片 ===== -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:background="@drawable/bg_card"
+                android:elevation="1dp"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/contact_name"
+                    style="@style/SectionTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/enter_the_contact_name" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/contact_input_layout"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/contact_value"
+                    android:textColorHint="@color/text_secondary"
+                    app:boxCornerRadiusBottomEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusTopStart="12dp"
+                    app:boxStrokeColor="@color/secondaryDarkColor"
+                    app:counterEnabled="true"
+                    app:counterMaxLength="15"
+                    app:endIconMode="clear_text"
+                    app:endIconTint="@color/secondaryDarkColor"
+                    app:helperText="@string/contact_helper"
+                    app:helperTextTextColor="@color/text_secondary"
+                    app:hintTextColor="@color/secondaryDarkColor">
+
+                    <AutoCompleteTextView
+                        android:id="@+id/contact_value"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="phone"
+                        android:maxLines="1"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        tools:ignore="Autofill" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/message_string"
+                    style="@style/SectionTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:text="@string/message_string" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/message_hint"
+                    android:textColorHint="@color/text_secondary"
+                    app:boxCornerRadiusBottomEnd="12dp"
+                    app:boxCornerRadiusBottomStart="12dp"
+                    app:boxCornerRadiusTopEnd="12dp"
+                    app:boxCornerRadiusTopStart="12dp"
+                    app:boxStrokeColor="@color/secondaryDarkColor"
+                    app:counterEnabled="true"
+                    app:counterMaxLength="50"
+                    app:endIconMode="clear_text"
+                    app:endIconTint="@color/secondaryDarkColor"
+                    app:helperText="@string/helper_text_keyword"
+                    app:helperTextTextColor="@color/text_secondary"
+                    app:hintTextColor="@color/secondaryDarkColor">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/message_value"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textMultiLine"
+                        android:maxLines="3"
+                        android:textColor="@color/text_primary"
+                        android:textSize="16sp"
+                        tools:ignore="Autofill" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+
+            <!-- ===== 状态条：当前是否在监听 ===== -->
+            <TextView
+                android:id="@+id/status_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:background="@drawable/bg_status_idle"
+                android:lineSpacingExtra="2dp"
+                android:paddingStart="14dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="12dp"
+                android:text="@string/status_idle"
+                android:textColor="@color/status_idle_text"
+                android:textSize="13sp" />
+
+            <!-- ===== 操作按钮 ===== -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/trigger"
+                style="@style/PrimaryButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_marginTop="18dp"
+                android:text="@string/trigger_button" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clear"
+                style="@style/SecondaryButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="10dp"
+                android:text="@string/clear_button" />
+
+            <!-- 二次开发新增：两个直达入口。
+                 · 「规则演练」借鉴短信铃铛：先验证再依赖，避免关键词写错却毫无察觉；
+                 · 「提醒方式与重复」把响铃/震动/重复策略放到一手可点的地方，
+                   而不是只藏在右上角菜单里。 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/practice_rule"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="40dp"
+                    android:text="@string/practice_button"
+                    android:textColor="@color/secondaryDarkColor" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/reminder_settings"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="40dp"
+                    android:text="@string/reminder_settings_button"
+                    android:textColor="@color/secondaryDarkColor"
+                    app:icon="@drawable/ic_baseline_settings_24"
+                    app:iconGravity="textStart"
+                    app:iconTint="@color/secondaryDarkColor" />
+            </LinearLayout>
+
+            <!-- ===== 使用提示 ===== -->
+            <TextView
+                android:id="@+id/permission_tip"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:lineSpacingExtra="3dp"
+                android:text="@string/permission_tip"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+            <!-- 品牌图标：体积很小（6KB），不会造成内存压力 -->
+            <ImageView
+                android:id="@+id/brand_icon"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="18dp"
+                android:alpha="0.9"
+                android:contentDescription="@string/logo"
+                android:src="@drawable/app_logo" />
+        </LinearLayout>
+    </ScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

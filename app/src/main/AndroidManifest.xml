@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  v4 合规改造说明（modified）：
+  1) targetSdk 36 / compileSdk 36。targetSdk>=31 后「从短信广播启动前台服务」被系统禁止，
+     因此主链路改为：短信广播 -> 高优先级通知(全屏 Intent) -> 全屏告警页(用户可见) -> 前台服务。
+  2) 前台服务类型 shortService -> mediaPlayback：
+     shortService 在 Android 14+ 只有约 3 分钟时限，超时会触发 onTimeout 甚至 ANR；
+     本应用的铃声音频播放属于 mediaPlayback，无该时限，且只需安装即授予的普通权限。
+  3) USE_FULL_SCREEN_INTENT 在 Android 14+ 不再默认授予，代码用 canUseFullScreenIntent()
+     检测并在权限体检里引导用户到 ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT。
+  4) POST_NOTIFICATIONS 在 targetSdk 33+ 必须运行时申请（MainActivity 已接入）。
+  5) 新增 dataExtractionRules / fullBackupContent：Android 12+ 备份规则的官方写法；
+     allowBackup=false 仍保留，规则作为纵深防御，避免号码与关键词被同步出去。
+  6) usesCleartextTraffic=false：本应用自身不发起任何明文网络请求。
+  7) enableOnBackInvokedCallback=true：Android 13+ 预测式返回手势；
+     AlertActivity 同步改用 OnBackPressedDispatcher 接管返回键。
+  8) 新增两个非导出广播接收器：重复闹钟、通知动作。均用显式 Intent 触发，
+     符合 targetSdk 34+ 对隐式 Intent / 非导出组件的限制。
+  9) Onboarding 改为 exported=false 并移除 intent-filter：它只由 MainActivity 用显式 Intent 拉起，
+     原先 exported=true 且带 MAIN intent-filter，任何外部应用都能把它拉到前台，属于不必要的暴露。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 前台服务（API 28+）及其在 Android 14+ 必需的类型权限 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- modified: mediaPlayback 类型对应的权限；normal 级别，安装即授予 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 接收短信权限：核心权限，运行时申请 -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- modified: Android 13+ 通知运行时权限（targetSdk 36 下必须申请，已接入 MainActivity） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- modified: 全屏告警。Android 14+ 默认可能未授予，必须检测 + 引导用户手动开启 -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- 说明：不声明 SCHEDULE_EXACT_ALARM。重复提醒统一使用 AlarmManager.setAlarmClock()，
+         这是官方定义的“用户可见闹钟”API，不受 Android 12+ 精确闹钟权限限制，
+         且能在低电耗(Doze)模式下准时触发；遵循最小权限原则。 -->
+
+    <application
+        android:icon="@mipmap/app_logo"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/app_logo_round"
+        android:supportsRtl="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:usesCleartextTraffic="false"
+        android:enableOnBackInvokedCallback="true"
+        android:theme="@style/MyAppTheme.Splash">
+
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_button"
+            android:theme="@style/AppSettingsTheme" />
+
+        <!-- modified: 不导出、无 intent-filter，仅由 MainActivity 显式拉起 -->
+        <activity
+            android:name=".Onboarding"
+            android:enabled="true"
+            android:exported="false" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- modified: 全屏告警页。除了代码里的 setShowWhenLocked/setTurnScreenOn，
+             这里再补 manifest 属性——MIUI / HyperOS 上有 ROM 会忽略纯代码设置，
+             导致锁屏拉起时页面被锁屏盖住、铃声在响却看不到任何界面。
+             configChanges：避免旋转屏幕重建页面（重建会再次启动播放服务，铃声从头开始）。 -->
+        <activity
+            android:name=".AlertActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showOnLockScreen="true"
+            android:showWhenLocked="true"
+            android:taskAffinity="com.saiga.find.messagefinder.alert"
+            android:theme="@style/AlertTheme"
+            android:turnScreenOn="true"
+            tools:targetApi="o_mr1" />
+
+        <receiver
+            android:name=".SMSReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- modified: 精确闹钟触发的“下一轮提醒”，非导出，仅本应用显式广播 -->
+        <receiver
+            android:name=".RepeatAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- modified: 通知上「停止 / 稍后提醒」按钮，改为广播入口。
+             从后台直接 startService 在 Android 12+ 同样受限，广播接收器不受此限制。 -->
+        <receiver
+            android:name=".AlertActionReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- modified: shortService -> mediaPlayback。服务只在用户可见时由 AlertActivity 启动，
+             每轮响完即 stopSelf，不再长时间驻留前台。 -->
+        <service
+            android:name=".SMSForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+    </application>
+
+</manifest>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- modified: Android 12(API 31)+ 数据导出规则。本应用保存手机号与关键词规则，
+     明确排除全部目录，禁止云备份与设备间迁移带走这些数据。 -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="." />
+    </device-transfer>
+</data-extraction-rules>
