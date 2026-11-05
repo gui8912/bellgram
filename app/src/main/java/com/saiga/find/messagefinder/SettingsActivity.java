@@ -118,6 +118,16 @@ public class SettingsActivity extends AppCompatActivity {
         @Override
         public void onResume() {
             super.onResume();
+            // modified: 【v4.2】自动联想开关由 AppConfig（"Settings" 文件）托管，
+            // 而 syncAutoSuggestionState 原先只在 onCreatePreferences 调用一次；
+            // 通过 MyDialogFragment 改过开关、或旋转后 Fragment 被复用，
+            // 界面会显示旧的默认值。每次可见时用真实配置校准一次。
+            Preference autoPref = findPreference(getString(R.string.auto_suggestion_key)); // modified
+            if (autoPref != null) { // modified
+                autoPref.setOnPreferenceChangeListener(null); // 避免 setChecked 回写 // modified
+                syncAutoSuggestionState(autoPref); // modified
+                autoPref.setOnPreferenceChangeListener(this); // modified
+            }
             refreshActiveConfiguration(); // 从系统设置页返回时重新检测权限状态
         }
 

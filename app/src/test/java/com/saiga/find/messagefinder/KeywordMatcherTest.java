@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse; // modified: v4.2 新增用例
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -135,5 +136,36 @@ public class KeywordMatcherTest {
         // 全角数字与全角空格都应被归一化后仍能匹配
         assertEquals("到账", KeywordMatcher.findMatch(keywords,
                 "到账８０００元　余额１２３４元", true));
+    }
+
+    // ---- modified: v4.2 独立复审新增的回归用例 ----
+
+    @Test
+    public void parseKeywords_supportsCjkPunctuation() { // modified
+        // 中文用户按习惯输入「报警、求助」，原实现整串会被当成一条永不命中的关键词。
+        assertEquals(Arrays.asList("报警", "求助"), KeywordMatcher.parseKeywords("报警、求助")); // modified
+        assertEquals(Arrays.asList("报警", "求助"), KeywordMatcher.parseKeywords("报警。求助")); // modified
+    }
+
+    @Test
+    public void parseKeywords_stripsZeroWidthCharacters() { // modified
+        // 从微信 / 网页复制粘贴常带 U+200B 零宽空格与 U+FEFF BOM。
+        assertEquals(Arrays.asList("报警", "求助"), KeywordMatcher.parseKeywords("报警\u200B求助")); // modified
+        assertEquals(Arrays.asList("报警", "求助"), KeywordMatcher.parseKeywords("\uFEFF报警\u200B求助")); // modified
+    }
+
+    @Test
+    public void parseKeywords_truncatesByCodePoint() { // modified
+        // 29 个 'a' + 1 个 emoji(占 2 个 UTF-16 char) = 30 个 code point，
+        // 截断边界正好落在 emoji 上，不能留下孤立高代理项。
+        StringBuilder word = new StringBuilder(); // modified
+        for (int i = 0; i < KeywordMatcher.MAX_KEYWORD_LENGTH - 1; i++) { // modified
+            word.append('a'); // modified
+        }
+        word.append("\uD83D\uDE00").append("tail"); // modified
+        String result = KeywordMatcher.parseKeywords(word.toString()).get(0); // modified
+        assertEquals(KeywordMatcher.MAX_KEYWORD_LENGTH, // modified
+                result.codePointCount(0, result.length())); // modified
+        assertFalse(Character.isHighSurrogate(result.charAt(result.length() - 1))); // modified
     }
 }

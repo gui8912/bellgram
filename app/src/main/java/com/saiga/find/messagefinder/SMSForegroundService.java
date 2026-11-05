@@ -49,6 +49,13 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     private static final long NO_TIMEOUT_WAKE_LOCK_MS = 30 * 60 * 1000L;
     private static final int FALLBACK_SNOOZE_MINUTES = 5;
 
+    /** modified: 【v4.2】服务存活标志，供 AlertDispatcher 判断是否需要发 STOP action。 */
+    private static volatile boolean sRunning = false; // modified
+    /** modified: 【v4.2】本轮是否正在播放，用于拒绝同轮重复 START_ALERT。 */
+    public static boolean isRunning() { // modified
+        return sRunning; // modified
+    }
+
     private MediaPlayer mediaPlayer;
     private Vibrator vibratorService;
     private AudioManager audioManager;
@@ -88,6 +95,9 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
         alertHandler = new Handler(Looper.getMainLooper());
         NotificationHelper.ensureChannels(this);
+        sRunning = true; // modified: 【v4.2】登记存活
+        // modified: 上次进程被杀时可能把系统闹钟音量永久改成了最大，先还原
+        AlarmVolumeGuard.restoreIfStale(this); // modified
     }
 
     @Override
@@ -119,6 +129,13 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     // ==================== 单轮提醒主流程 ====================
 
     private void handleStartAlert(Intent intent) {
+        // modified: 【v4.2 独立复审】同一轮的 START_ALERT 重复到达会取消本轮定时器、
+        // reset MediaPlayer、从头播放（用户反复点通知 / FSI 重复投递时本轮永远响不完）。
+        // 这里做本轮幂等，配合 AlertActivity.onNewIntent 的轮次去重形成双保险。
+        if (alertActive) { // modified
+            Log.d(TAG, "alert round already playing, ignore duplicate START"); // modified
+            return;
+        }
         AlertSession session = AlertSession.get(this);
         // 会话状态为准；intent extras 只作为兼容兜底（v3 残留的通知可能直接带内容启动服务）
         currentSender = fallback(session.getFrom(), NotificationHelper.getFrom(intent));
@@ -253,7 +270,11 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         restoreAlarmVolume();
         releasePlayer();
         releaseWakeLock();
-        stopSelfSafely(false);
+        // modified: 【v4.2 独立复审】原实现用 DETACH，官方语义是「服务销毁后通知仍保留」。
+        // AlertDispatcher.stop() 先 cancel 通知再请求停止，服务随后 DETACH 会把
+        // 一条仍带「停止 / 稍后提醒」按钮的通知重新留在通知栏，用户点了停止却没停干净。
+        // 本地停止属于「用户明确结束」，应当 REMOVE；endRound 的等待通知仍用 DETACH。
+        stopSelfSafely(true); // modified
     }
 
     /** 铃声播放失败时，换到带声音渠道再提醒一次，保证至少响一声。 */
@@ -277,6 +298,8 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
                     if (!volumeBoosted) {
                         savedAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
                         volumeBoosted = true;
+                        // modified: 【v4.2】同步落盘，进程被杀后仍可恢复（onDestroy 不一定执行）
+                        AlarmVolumeGuard.remember(this, savedAlarmVolume); // modified
                     }
                     audioManager.setStreamVolume(AudioManager.STREAM_ALARM,
                             audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0);
@@ -303,6 +326,15 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
                 @Override
                 public boolean onError(MediaPlayer mp, int what, int extra) {
                     Log.e(TAG, "media player error, what=" + what + ", extra=" + extra);
+                    // modified: 【v4.2 独立复审】返回 true 表示「应用自行处理」，
+                    // 原实现除打日志外什么都没做：MediaPlayer 进入 Error 状态、
+                    // setLooping 失效，本轮彻底静音，服务却继续占前台直到超时。
+                    // 现在显式收尾并补一声通知音，至少让用户知道有事发生。
+                    ringWindowOpen = false; // modified
+                    stopRingAndVibration(); // modified
+                    releasePlayer(); // modified
+                    restoreAlarmVolume(); // modified
+                    fallbackToNotificationSound(); // modified
                     return true;
                 }
             });
@@ -314,6 +346,9 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         } catch (Exception e) {
             Log.e(TAG, "prepare alarm playback failed", e);
             releasePlayer();
+            // modified: 【v4.2】音量可能已经提升成功，失败分支必须立刻归还，
+            // 否则「一直响到手动停止」配置下系统闹钟音量会被钉在最大。
+            restoreAlarmVolume(); // modified
             return false;
         }
     }
@@ -388,6 +423,7 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         } finally {
             volumeBoosted = false;
             savedAlarmVolume = -1;
+            AlarmVolumeGuard.clear(this); // modified: 【v4.2】正常收尾，清除跨进程残留标记
         }
     }
 
@@ -483,6 +519,7 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
             Log.w(TAG, "cancel vibration on destroy failed", e);
         }
         releaseWakeLock();
+        sRunning = false; // modified: 【v4.2】注销存活标志
         Log.d(TAG, "alert service destroyed");
     }
 

@@ -35,6 +35,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- modified: 全屏告警。Android 14+ 默认可能未授予，必须检测 + 引导用户手动开启 -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <!-- modified: 【v4.2】系统重启会清空 AlarmManager 闹钟，需要开机广播重新注册，
+         否则「一直提醒到处理」的会话在重启后永久静默失效。normal 级权限，安装即授予。 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 说明：不声明 SCHEDULE_EXACT_ALARM。重复提醒统一使用 AlarmManager.setAlarmClock()，
          这是官方定义的“用户可见闹钟”API，不受 Android 12+ 精确闹钟权限限制，
          且能在低电耗(Doze)模式下准时触发；遵循最小权限原则。 -->
@@ -76,6 +79,8 @@
         <!-- modified: 全屏告警页。除了代码里的 setShowWhenLocked/setTurnScreenOn，
              这里再补 manifest 属性——MIUI / HyperOS 上有 ROM 会忽略纯代码设置，
              导致锁屏拉起时页面被锁屏盖住、铃声在响却看不到任何界面。
+             v4.2：移除已废弃且语义无关的 android:showOnLockScreen（它实际是
+             "为所有用户显示"的旧名，不控制锁屏展示），保留真正生效的两个属性。
              configChanges：避免旋转屏幕重建页面（重建会再次启动播放服务，铃声从头开始）。 -->
         <activity
             android:name=".AlertActivity"
@@ -83,12 +88,23 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTop"
-            android:showOnLockScreen="true"
             android:showWhenLocked="true"
             android:taskAffinity="com.saiga.find.messagefinder.alert"
             android:theme="@style/AlertTheme"
             android:turnScreenOn="true"
             tools:targetApi="o_mr1" />
+
+        <!-- modified: 【v4.2】重启 / 覆盖安装后恢复未处理完的提醒会话。
+             exported=true 是因为这两个都是系统广播（发送方不是本应用）。 -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".SMSReceiver"

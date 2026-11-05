@@ -65,6 +65,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private static final String TAG = "Sms Receiver";
 
+    /** modified: 【v4.2】引导页跳过来时携带，用于抑制「刚结束引导就抢焦点弹权限框」。 */
+    public static final String EXTRA_FROM_ONBOARDING = "from_onboarding_v4"; // modified
+
     private static final String SMS_PERMISSION = Manifest.permission.RECEIVE_SMS;
     private static final String READ_CONTACTS_PERMISSION = Manifest.permission.READ_CONTACTS;
 
@@ -94,8 +97,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     /** 自动联想是否已被用户关闭（用于决定“是否弹通讯录选择器”）。 */
     private boolean isAutoSuggestionDisabled = false;
-    /** 引导页是否在本进程启动时展示过；为 true 时不在主界面抢焦点弹权限框。 */
-    private static boolean showOnboarding = false;
+    /** modified: 【v4.2】原为 static，且唯一置 true 的分支会立刻 finish 返回，恒为 false。
+     *  改为实例字段并由引导页 Intent 显式传入，注释宣称的保护才真正生效。 */
+    private boolean fromOnboarding = false; // modified
     /** 用户是否已经从通讯录选过联系人（避免反复弹“要不要选择联系人”）。 */
     private boolean isContactPicked = false;
     /** 本次会话是否已经问过“要不要从通讯录选择”，避免每次聚焦都弹一次。 */
@@ -109,16 +113,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         setTheme(R.style.MyAppTheme);
         super.onCreate(savedInstanceState);
         restoredFromState = savedInstanceState != null;
+        fromOnboarding = getIntent() != null // modified
+                && getIntent().getBooleanExtra(EXTRA_FROM_ONBOARDING, false); // modified: 读取来源
+        if (savedInstanceState != null) { // modified
+            // modified: 【v4.2】旋转重建后这三个 UI 标志原本归零，
+            // 会再次弹「是否要选择联系人」对话框、重复询问用户。
+            isContactPicked = savedInstanceState.getBoolean("state_contact_picked", false); // modified
+            contactPickerAsked = savedInstanceState.getBoolean("state_picker_asked", false); // modified
+            isAutoSuggestionDisabled = savedInstanceState.getBoolean("state_suggestion_disabled", false); // modified
+        }
+        // modified: 进程被强杀后，上次提醒可能把系统闹钟音量永久改成最大，先还原
+        AlarmVolumeGuard.restoreIfStale(this); // modified
 
-        // 结构控制：首次安装时进入引导页，引导完成后禁用 Onboarding 组件
+        // 结构控制：首次安装时进入引导页，引导完成后不再出现
         if (isOnboardingEnabled()) {
             Log.d(TAG, "onboarding enabled, launch it");
-            showOnboarding = true;
             startActivity(new Intent(this, Onboarding.class));
             finish();
             return; // modified: 提前返回，避免继续初始化一个已 finish 的界面
         }
-        showOnboarding = false;
 
         // 从引导页进入主界面时播放一次滑入动画
         slideAnimation();
@@ -418,10 +431,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      * @return Onboarding 组件是否仍处于启用状态（即用户还没走完引导流程）
      */
     private boolean isOnboardingEnabled() { // modified: 抽出方法，逻辑更直观
+        // modified: 【v4.2】持久化标记为主判定：setComponentEnabledSetting 在某些
+        // 受管设备 / ROM 上会失败并只打日志，原实现因此每次冷启动都重新进引导页。
+        if (AppConfig.get(this).isOnboardingDone()) { // modified
+            return false; // modified
+        }
         int enabled = getPackageManager()
                 .getComponentEnabledSetting(new ComponentName(this, Onboarding.class));
         return enabled == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
                 || enabled == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT;
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) { // modified: v4.2 新增
+        super.onSaveInstanceState(outState); // modified
+        outState.putBoolean("state_contact_picked", isContactPicked); // modified
+        outState.putBoolean("state_picker_asked", contactPickerAsked); // modified
+        outState.putBoolean("state_suggestion_disabled", isAutoSuggestionDisabled); // modified
     }
 
     @Override
@@ -606,6 +632,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void showSnackbar(int stringResId) {
+        // modified: 【v4.2】同文件其它弹窗都有 isFinishing 校验，唯独 Snackbar 没有。
+        // 已 finish 的 Activity 上 userMessageLayout 仍非 null，会继续执行后续保存逻辑。
+        if (isFinishing() || isDestroyed()) { // modified
+            return;
+        }
         if (userMessageLayout != null) {
             Snackbar.make(userMessageLayout, stringResId, Snackbar.LENGTH_LONG).show();
         }
@@ -630,11 +661,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
                                            @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        // modified: 【v4.2】点「启用」发起权限请求后立刻按返回键退出，
+        // 授权结果仍会投递到已 finish 的实例；原实现会继续读取界面并写入配置。
+        if (isFinishing() || isDestroyed()) { // modified
+            Log.d(TAG, "permission result arrived after activity finished, ignored"); // modified
+            return;
+        }
         boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
 
         if (requestCode == PERM_NOTIFICATIONS_REQUEST) { // modified: 新增通知权限回调
             if (!granted) {
-                showSnackbar(R.string.notif_permission_denied);
+                // modified: 【v4.2 独立复审】通知是主链路唯一唤醒入口，被永久拒绝后
+                // 应用内原本没有任何恢复入口（短信/联系人权限分支都有「去设置」Action）。
+                // 永久拒绝时给一条带设置页入口的长驻 Snackbar。
+                if (shouldExplainDenied(Manifest.permission.POST_NOTIFICATIONS)) { // modified
+                    showPermissionSnackbar(R.string.notif_permission_denied); // modified
+                } else { // modified
+                    showSnackbar(R.string.notif_permission_denied); // modified
+                }
             }
             updateStatusUi();
             return;
@@ -644,6 +688,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             if (granted) {
                 // 权限授予后，重新读取界面输入再保存，避免使用可能已失效的成员变量
                 String contactRaw = getTextOf(R.id.contact_value);
+                // modified: 【v4.2 独立复审】handleTrigger() 里做了号码格式校验，
+                // 但权限回调这条分支直接 saveConfig，绕过了校验。请求权限期间用户
+                // 若改动输入框，脏号码会被原样写进配置，规则静默失效。
+                if (!TextUtils.isEmpty(contactRaw) && !PhoneNumbers.isValidInput(contactRaw)) { // modified
+                    showSnackbar(R.string.input_format_error); // modified
+                    return;
+                }
                 List<String> keywords = KeywordMatcher.parseKeywords(getTextOf(R.id.message_value));
                 if (keywords.isEmpty()) {
                     showSnackbar(R.string.keyword_empty);
@@ -677,7 +728,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void showPermissionSnackbar(int messageResId) {
-        if (userMessageLayout == null) {
+        // modified: 【v4.2】同上，避免界面销毁后仍展示/持有 Snackbar
+        if (isFinishing() || isDestroyed() || userMessageLayout == null) { // modified
             return;
         }
         smsPermSnackbar = Snackbar.make(userMessageLayout, messageResId, Snackbar.LENGTH_INDEFINITE)
@@ -757,7 +809,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             return true;
         }
         // 引导页刚结束时不要立刻弹框抢焦点；配置变更重建时也不要重复弹
-        if (showOnboarding || restoredFromState) { // modified: 生命周期校验
+        if (fromOnboarding || restoredFromState) { // modified: 生命周期校验
             return false;
         }
         uiHandler.postDelayed(new Runnable() {
@@ -791,6 +843,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     /** 由 {@link MyDialogFragment} 调用：记录“不再提示自动联想”。 */
     void setUserConfig(boolean disabled) {
         appConfig.setAutoSuggestionDisabled(disabled);
+        // modified: 【v4.2】「不再显示」按钮本意是不再打扰，但 autoSuggDisabled=true
+        // 恰好是「每次聚焦号码框都弹『是否选择联系人』」的触发条件，语义反噬。
+        // 同时把会话内「已问过」置位，让这次选择真正生效。
+        contactPickerAsked = true; // modified
     }
 
     /** 由 {@link MyDialogFragment} 调用：记录用户本次选择（关闭说明框后改用通讯录选择器）。 */

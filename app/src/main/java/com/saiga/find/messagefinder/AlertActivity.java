@@ -45,6 +45,8 @@ public class AlertActivity extends AppCompatActivity {
     private String keyword = "";
     private String person = "";
     private String body = "";
+    /** modified: 【v4.2】记录本实例已经为哪一輪启动过服务，用于 onNewIntent 去重。 */
+    private int lastStartedRound = -1; // modified
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -60,6 +62,7 @@ public class AlertActivity extends AppCompatActivity {
         // 重建后再次 startForegroundService 会让服务进入新一轮 handleStartAlert，
         // 表现就是「手机一转，正在响的闹铃从头开始」。只有首次创建才需要启动。
         if (savedInstanceState == null) {
+            lastStartedRound = AlertSession.get(this).getRound(); // modified: 登记已启动轮次
             startAlertService(); // modified: 用户可见状态下启动前台服务，属于系统豁免
         }
     }
@@ -70,7 +73,17 @@ public class AlertActivity extends AppCompatActivity {
         // singleTop + 全屏 Intent 重复触发时复用本实例，只需刷新内容
         setIntent(intent);
         bindContent(intent);
-        startAlertService(); // modified: 新一轮提醒复用本实例时重新播放
+        // modified: 【v4.2 独立复审】原实现无条件 startAlertService()。
+        // 全屏告警页已显示、铃声正在响时，用户点通知横幅/正文会走 onNewIntent，
+        // 服务因此重新 handleStartAlert：取消本轮定时器、reset MediaPlayer、从头播放，
+        // 反复点通知就能让这一轮永远响不完。只有轮次真的变了才需要重新启动。
+        int incomingRound = AlertSession.get(this).getRound(); // modified
+        if (incomingRound != lastStartedRound) { // modified
+            lastStartedRound = incomingRound; // modified
+            startAlertService(); // modified: 仅新一轮重启
+        } else { // modified
+            Log.d(TAG, "same round re-delivered, keep current playback"); // modified
+        }
     }
 
     /**

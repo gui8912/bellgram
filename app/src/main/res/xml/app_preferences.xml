@@ -78,8 +78,12 @@
 
     <!-- preference category for experimental features -->
     <PreferenceCategory android:title="@string/app_pref_category1" android:key="@string/app_category_key1">
+        <!-- modified: 【v4.2】该开关由 AppConfig 单一托管。
+             原来 AndroidX 框架还会自动把 autosuggestion_key 写进默认 prefs，
+             与 "Settings" 文件里的 autoSuggDisabled 形成两套可分裂的状态。 -->
         <SwitchPreferenceCompat android:title="@string/auto_suggestion_feature"
             android:defaultValue="false"
+            android:persistent="false"
             android:enabled="true"
             android:key="@string/auto_suggestion_key"
             android:summaryOff="@string/auto_suggestion_off"

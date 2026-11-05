@@ -12,8 +12,8 @@ package com.saiga.find.messagefinder;
  */
 public final class PhoneNumbers {
 
-    /** 参与“后缀匹配”的最短有效长度，低于该长度只允许完全相等，避免 "123" 这类短号误命中。 */
-    private static final int MIN_SUFFIX_LENGTH = 7;
+    // modified: 【v4.2】移除 MIN_SUFFIX_LENGTH（原 7 位门槛把 10086 / 95588 挡在门外）。
+    // 现在由 matches() 用「较短侧 >= MIN_INPUT_LENGTH 且长度差 <= 4」统一约束。
     /** 单号码最大长度（E.164 上限 15 位）。 */
     private static final int MAX_INPUT_LENGTH = 15;
     /** 单号码最小长度（预留 5 位短号，如 10086）。 */
@@ -47,7 +47,7 @@ public final class PhoneNumbers {
             } else if (ch == '+' && builder.length() == 0) {
                 builder.append(ch);
             }
-            // 其余字符（空格、-、()、*、#）一律丢弃
+            // 其余字符（空格、-、()、*、#、字母、汉字）一律丢弃
         }
         return builder.toString();
     }
@@ -65,7 +65,10 @@ public final class PhoneNumbers {
                     || (ch >= '\uFF10' && ch <= '\uFF19')          // 全角数字
                     || ch == '+' || ch == '-' || ch == '.'
                     || ch == '(' || ch == ')' || ch == '\uFF08' || ch == '\uFF09'
-                    || ch == '*' || ch == '#'
+                    // modified: 【v4.2】移除 '*' / '#'。它们是 USSD 补充符，
+                    // stripSeparators 会直接丢弃，夹在数字中间时会把两段数字拼接起来
+                    // 改写成另一个号码 —— 与 v5 修掉的「校验通过但配置被静默改写」
+                    // 是同一个缺陷，只是残留了两个字符。
                     || ch == ' ' || ch == '\u00A0' || ch == '\u3000';
             if (!allowed) {
                 return false;
@@ -144,10 +147,10 @@ public final class PhoneNumbers {
         } else if (digits.startsWith("86") && digits.length() > CN_MOBILE_LENGTH) {
             digits = digits.substring(2);
         }
-        if (digits.length() > CN_MOBILE_LENGTH) {
-            // 仍然超长（例如带了分机号/短号前缀），取末 11 位
-            digits = digits.substring(digits.length() - CN_MOBILE_LENGTH);
-        }
+        // modified: 【v4.2 独立复审】原实现无条件「超过 11 位就取末 11 位」。
+        // v5 把 isValidInput 上限放宽到 E.164 的 15 位后，两个不同的 13 位号码
+        // （1234567890123 / 9934567890123）都会被截成同一个末 11 位而误判为相同号码，
+        // 造成误报。现在保留完整数字串；国家码/区号前缀差异交给 matches() 的后缀匹配处理。
         return digits;
     }
 
@@ -173,8 +176,18 @@ public final class PhoneNumbers {
         if (configuredNumber.equals(senderNumber)) {
             return true;
         }
-        return configuredNumber.length() >= MIN_SUFFIX_LENGTH
-                && senderNumber.length() >= MIN_SUFFIX_LENGTH
-                && (senderNumber.endsWith(configuredNumber) || configuredNumber.endsWith(senderNumber));
+        // modified: 【v4.2】原实现是「双向后缀 + 两侧都 >= 7 位」：
+        //   ① 双向后缀让「配置 11 位、发送方 9 位且是其后缀」也命中，误报面过宽；
+        //   ② 7 位门槛把 10086 / 95588 这类最常监听的服务号挡在门外，
+        //      而短信侧常返回 +8610086，于是短号规则静默失效。
+        // 改为：只允许「较长一侧 = 较短一侧 + 至多 4 位前缀」这一种合法情形。
+        String longer = configuredNumber.length() >= senderNumber.length() // modified
+                ? configuredNumber : senderNumber; // modified
+        String shorter = configuredNumber.length() >= senderNumber.length() // modified
+                ? senderNumber : configuredNumber; // modified
+        int prefixLength = longer.length() - shorter.length(); // modified
+        return shorter.length() >= MIN_INPUT_LENGTH // modified
+                && prefixLength <= 4 // modified
+                && longer.endsWith(shorter); // modified
     }
 }

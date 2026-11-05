@@ -48,6 +48,13 @@ public class Onboarding extends AppCompatActivity {
         setTheme(R.style.OnboardingTheme);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.screen_onboarding);
+        // modified: 【v4.2 独立复审】本页是唯一没做 edge-to-edge 的 Activity。
+        // targetSdk 35+ 内容默认绘制到系统导航栏之下，而 button_bar 只有 16dp 底部 padding，
+        // 三键导航 / 手势导航会盖住「完成」按钮 —— 这是首次安装必经路径，
+        // 被遮挡等于用户根本进不了主界面。与 MainActivity / SettingsActivity 对齐补上 insets。
+        EdgeToEdgeHelper.apply(this, R.id.onboarding_root); // modified
+        // modified: 进程被杀时可能残留被抬高的系统闹钟音量，任意组件启动都尝试还原一次
+        AlarmVolumeGuard.restoreIfStale(this); // modified
 
         slideView = findViewById(R.id.slideView);
         dotLayout = findViewById(R.id.navigator_menu);
@@ -90,18 +97,24 @@ public class Onboarding extends AppCompatActivity {
      * @param sourceView 触发按钮，用于共享元素动画
      */
     private void finishOnboarding(View sourceView) { // modified: 从匿名内部类抽出
+        // modified: 【v4.2】先落盘「已完成」，再尝试禁用组件。
+        // 组件禁用失败时这个标记仍能保证 MainActivity 不再把用户送回引导页。
+        AppConfig.get(this).setOnboardingDone(true); // modified
         try {
             Intent launchMain = new Intent()
                     .setComponent(new ComponentName(sourceView.getContext(), MainActivity.class));
+            launchMain.putExtra(MainActivity.EXTRA_FROM_ONBOARDING, true); // modified: 标记来源
             ActivityOptions options = ActivityOptions.makeSceneTransitionAnimation(Onboarding.this);
             startActivity(launchMain, options.toBundle());
         } catch (Exception e) {
             // 动画资源异常时退化为普通跳转，不能因此卡在引导页
             Log.e(TAG, "launch main activity with transition failed", e);
-            startActivity(new Intent(this, MainActivity.class));
+            Intent plain = new Intent(this, MainActivity.class); // modified
+            plain.putExtra(MainActivity.EXTRA_FROM_ONBOARDING, true); // modified: 标记来源
+            startActivity(plain); // modified
         }
         try {
-            // 禁用自身，避免用户再次进入引导页
+            // 加固：禁用自身。失败也不影响（主判定已交给持久化标记）
             getPackageManager().setComponentEnabledSetting(
                     new ComponentName(this, Onboarding.class),
                     PackageManager.COMPONENT_ENABLED_STATE_DISABLED,

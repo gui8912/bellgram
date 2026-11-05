@@ -13,6 +13,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern; // modified: 【v4.2】预编译分隔符，避免每次 split 都 compile
 
 /**
  * 关键词归一化与匹配工具。
@@ -34,8 +35,9 @@ public final class KeywordMatcher {
     /** 关键词数量上限，防止误粘贴整段文本导致匹配开销与存储膨胀。 */
     public static final int MAX_KEYWORDS = 50;
 
-    /** 分隔符：逗号、分号、空白（归一化后全角已变半角，因此这里只需处理半角）。 */
-    private static final String SEPARATOR_REGEX = "[,;\\s]+";
+    /** 分隔符：逗号、分号、空白（归一化后全角与 CJK 标点已变半角，这里只需处理半角）。 */
+    private static final Pattern SEPARATOR_PATTERN = // modified: 由 String 改为预编译 Pattern
+            Pattern.compile("[,;\\s]+"); // modified
 
     private KeywordMatcher() {
         // 工具类不允许实例化
@@ -54,8 +56,18 @@ public final class KeywordMatcher {
         StringBuilder builder = new StringBuilder(raw.length());
         for (int i = 0; i < raw.length(); i++) {
             char ch = raw.charAt(i);
-            if (ch == '\u3000' || ch == '\u00A0') {
-                // 全角空格 / 不间断空格 -> 普通空格
+            // modified: 【v4.2】中文用户高频输入「报警、求助」，顿号 U+3001 /
+            // 句号 U+3002 原本被原样保留，整串变成一个永不命中的关键词；
+            // 从微信/网页复制粘贴带进来的零宽空格 U+200B、BOM U+FEFF 同理。
+            // 类注释本就宣称要统一 Unicode 空白，这里把规则补全。
+            if (ch == '\u3001' || ch == '\u3002' || ch == '\uFF0E') { // modified
+                builder.append(',');       // CJK 标点 -> 分隔符 // modified
+            } else if (ch == '\u200B' || ch == '\uFEFF' || ch == '\u2060' // modified
+                    || ch == '\u200E' || ch == '\u200F') { // modified
+                builder.append(' ');       // 零宽字符 / BOM -> 分隔符 // modified
+            } else if (ch == '\u3000' || ch == '\u00A0' // modified
+                    || Character.isSpaceChar(ch) || Character.isWhitespace(ch)) { // modified
+                // 全角空格 / 不间断空格 / 各类 Unicode 排版空格 -> 普通空格
                 builder.append(' ');
             } else if (ch >= '\uFF01' && ch <= '\uFF5E') {
                 // 全角 ASCII -> 半角 ASCII（含全角逗号、全角数字、全角字母）
@@ -83,7 +95,7 @@ public final class KeywordMatcher {
             return result;
         }
         LinkedHashSet<String> unique = new LinkedHashSet<>();
-        String[] parts = normalized.split(SEPARATOR_REGEX);
+        String[] parts = SEPARATOR_PATTERN.split(normalized); // modified: 复用预编译 Pattern
         for (String part : parts) {
             if (part == null) {
                 continue;
@@ -92,8 +104,11 @@ public final class KeywordMatcher {
             if (keyword.isEmpty()) {
                 continue;
             }
-            if (keyword.length() > MAX_KEYWORD_LENGTH) {
-                keyword = keyword.substring(0, MAX_KEYWORD_LENGTH);
+            // modified: 【v4.2】原实现按 UTF-16 char 截断，emoji / 增补平面汉字
+            // 正好跨在边界上时会留下孤立代理项，写进 SharedPreferences 的 XML 后
+            // 显示成乱码，部分 OEM 的 XML 编码器甚至会抛异常。改按 code point 计。
+            if (keyword.codePointCount(0, keyword.length()) > MAX_KEYWORD_LENGTH) { // modified
+                keyword = keyword.substring(0, keyword.offsetByCodePoints(0, MAX_KEYWORD_LENGTH)); // modified
             }
             unique.add(keyword);
             if (unique.size() >= MAX_KEYWORDS) {

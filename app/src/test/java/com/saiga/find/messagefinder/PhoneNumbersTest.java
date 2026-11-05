@@ -109,4 +109,42 @@ public class PhoneNumbersTest {
         assertFalse(PhoneNumbers.matches("13800138000", ""));
         assertFalse(PhoneNumbers.matches("13800138000", null));
     }
+
+    // ---- modified: v4.2 独立复审新增的回归用例 ----
+
+    @Test
+    public void isValidInput_rejectsUssdSupplementChars() { // modified
+        // '*' / '#' 会被 stripSeparators 静默丢弃，夹在数字中间会把号码改写成另一个号码。
+        // v5 的字符白名单修漏了这两个字符，这里把它们钉死。
+        assertFalse(PhoneNumbers.isValidInput("1380013800*99")); // modified
+        assertFalse(PhoneNumbers.isValidInput("#10086#")); // modified
+        assertFalse(PhoneNumbers.isValidInput("138 0013 8000 #1234")); // modified
+    }
+
+    @Test
+    public void canonical_keepsLongInternationalNumberIntact() { // modified
+        // v5 把输入上限放宽到 E.164 的 15 位后，canonical 仍无条件取末 11 位，
+        // 两个不同的 13 位号码会被压成同一个值。
+        assertEquals("1234567890123", PhoneNumbers.canonical("1234567890123")); // modified
+        assertEquals("9934567890123", PhoneNumbers.canonical("9934567890123")); // modified
+    }
+
+    @Test
+    public void matches_doesNotCollapseDifferentLongNumbers() { // modified
+        assertFalse(PhoneNumbers.matches("1234567890123", "9934567890123")); // modified
+    }
+
+    @Test
+    public void matches_shortServiceNumberToleratesCountryPrefix() { // modified
+        // 10086 / 95588 是最常监听的服务号；旧的 7 位门槛把它们挡在门外，
+        // 短信侧返回 +8610086 时规则会静默失效。
+        assertTrue(PhoneNumbers.matches("10086", "+8610086")); // modified
+        assertTrue(PhoneNumbers.matches("95588", "8695588")); // modified
+    }
+
+    @Test
+    public void matches_rejectsTooLongPrefixDifference() { // modified
+        // 长度差超过 4 位不再做后缀匹配，避免短片段误命中长号码。
+        assertFalse(PhoneNumbers.matches("01088886666", "886666")); // modified
+    }
 }

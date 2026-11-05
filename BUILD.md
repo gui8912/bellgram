@@ -1,8 +1,8 @@
-# 构建与运行说明（铃达 / Bellgram v4.1.0）
+# 构建与运行说明（铃达 / Bellgram v4.2.0）
 
 > 目标：在一台**没有配置过本项目**的普通笔记本上，拉取代码后能直接编译出可安装的 APK。
 > 本文档只写「怎么做」，架构与逐项改动见 [`AUDIT_REPORT_V4.md`](AUDIT_REPORT_V4.md)
-> 与 [`REVIEW_REPORT_V5.md`](REVIEW_REPORT_V5.md)。
+> 与 [`REVIEW_REPORT_V5.md`](REVIEW_REPORT_V5.md)；本轮全量复审见 [`AUDIT_REPORT_V7.md`](AUDIT_REPORT_V7.md)。
 
 ---
 

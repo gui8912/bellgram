@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- 二次开发（modified）：引导页改为“内容区 + 指示点 + 按钮栏”三段式纵向堆叠。
      去掉原 ViewPager 写死的 673dp 高度（小屏/横屏会溢出），并把指示点与按钮分离，避免相互遮挡。 -->
+<!-- modified: 【v4.2】给根布局加 id，供 EdgeToEdgeHelper 施加系统栏 insets。 -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/onboarding_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/onboarding"

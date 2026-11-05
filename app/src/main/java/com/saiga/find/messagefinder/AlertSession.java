@@ -29,6 +29,8 @@ public final class AlertSession {
     private static final String KEY_KEYWORD = "keyword";
     private static final String KEY_PERSON = "person";
     private static final String KEY_BODY = "body";
+    /** modified: 【v4.2】标记下一轮由用户主动「稍后提醒」触发，不参与配置复核。 */
+    private static final String KEY_SNOOZED = "snoozed_round"; // modified
 
     private final SharedPreferences prefs;
 
@@ -58,6 +60,7 @@ public final class AlertSession {
                 .putString(KEY_KEYWORD, safe(keyword))
                 .putString(KEY_PERSON, safe(person))
                 .putString(KEY_BODY, safe(body))
+                .remove(KEY_SNOOZED) // modified: 新会话清掉上一轮的 snooze 标记
                 .commit();
     }
 
@@ -100,6 +103,20 @@ public final class AlertSession {
         if (total > 0 && safeRound > total) {
             prefs.edit().putInt(KEY_TOTAL, safeRound).commit();
         }
+    }
+
+    /** 标记「下一轮是用户主动稍后提醒要的」，即使配置改成不重复也必须响。 */
+    public void markSnoozed() { // modified: v4.2 新增
+        prefs.edit().putBoolean(KEY_SNOOZED, true).commit(); // modified
+    }
+
+    /** 读取并一次性消费该标记。 */
+    public boolean consumeSnoozed() { // modified: v4.2 新增
+        boolean value = prefs.getBoolean(KEY_SNOOZED, false); // modified
+        if (value) { // modified
+            prefs.edit().remove(KEY_SNOOZED).commit(); // modified
+        }
+        return value; // modified
     }
 
     public String getFrom() { // modified: 新增

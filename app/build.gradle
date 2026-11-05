@@ -57,9 +57,9 @@ android {
         minSdk 23
         // modified: 29 -> 36（本轮核心合规项，理由与配套架构改造见文件头与报告 §5.1）
         targetSdk 36
-        // modified: v4.1.2 = 修复首次启动引导页闪退（versionCode 21 -> 22）
-        versionCode 22
-        versionName "4.1.2"
+        // modified: v4.2.0 = 全量独立复审（30+ 项缺陷修复），versionCode 22 -> 23
+        versionCode 23 // modified: 本轮复审发布
+        versionName "4.2.0" // modified: 本轮复审发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

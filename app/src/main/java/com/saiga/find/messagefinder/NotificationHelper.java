@@ -82,6 +82,23 @@ public final class NotificationHelper {
         if (manager == null) {
             return;
         }
+        // modified: 【v4.2 独立复审】原实现把两个渠道的创建 + 删旧渠道全塞进一个 try。
+        // 部分定制 ROM 的 setBypassDnd() 会抛异常，一旦发生在「静音渠道已创建、
+        // 有声渠道未创建」之间，异常被整体吞掉，之后 postRound() 恒用有声渠道发通知，
+        // 而该渠道根本不存在 —— Android 8+ 会静默丢弃通知，主链路 100% 失效且无报错。
+        // 现在每个渠道独立 try，且把非关键的 setBypassDnd 单独包起来，
+        // 保证 createNotificationChannel() 这一步一定有机会执行。
+        createQuietChannel(manager, context);   // modified: 渠道创建相互隔离
+        createAudibleChannel(manager, context); // modified: 渠道创建相互隔离
+        try { // modified
+            // modified: 清掉 v3 遗留的旧渠道（声音属性创建后不可改，留着只会在系统设置里多出一条）
+            manager.deleteNotificationChannel(CHANNEL_ID_LEGACY_V3); // modified
+        } catch (Exception e) { // modified
+            Log.w(TAG, "delete legacy channel failed", e); // modified
+        }
+    }
+
+    private static void createQuietChannel(NotificationManager manager, Context context) { // modified: 新增
         try {
             NotificationChannel alertChannel = new NotificationChannel(
                     CHANNEL_ID_ALERT,
@@ -91,9 +108,16 @@ public final class NotificationHelper {
             alertChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
             alertChannel.setSound(null, null); // modified: 服务播放铃声时不出通知音
             alertChannel.enableVibration(false);
-            alertChannel.setBypassDnd(true);
+            // modified: 非关键属性单独兜底，不能让它阻断渠道创建（部分定制 ROM 会抛异常）
+            tryBypassDnd(alertChannel); // modified
             manager.createNotificationChannel(alertChannel);
+        } catch (Exception e) { // modified
+            Log.e(TAG, "create quiet channel failed", e); // modified
+        }
+    }
 
+    private static void createAudibleChannel(NotificationManager manager, Context context) { // modified: 新增
+        try { // modified
             NotificationChannel audibleChannel = new NotificationChannel(
                     CHANNEL_ID_AUDIBLE,
                     context.getString(R.string.channel_name_audible),
@@ -110,32 +134,46 @@ public final class NotificationHelper {
                     .build();
             audibleChannel.setSound(alarmSound, audioAttributes); // modified: 广播阶段自带闹铃音
             audibleChannel.enableVibration(true);
-            audibleChannel.setBypassDnd(true);
+            tryBypassDnd(audibleChannel); // modified: 同上，单独兜底
             manager.createNotificationChannel(audibleChannel);
+        } catch (Exception e) { // modified
+            Log.e(TAG, "create audible channel failed", e); // modified
+        }
+    }
 
-            // modified: 清掉 v3 遗留的旧渠道。它在 v3 里是带提示音的，
-            // v4 已不再使用；留着会让用户在系统设置里看到一条多余渠道，
-            // 也可能被误认为仍然生效。
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                manager.deleteNotificationChannel(CHANNEL_ID_LEGACY_V3);
-            }
+    private static void tryBypassDnd(NotificationChannel channel) { // modified: 新增
+        try { // modified
+            channel.setBypassDnd(true); // modified
         } catch (Exception e) {
-            // 渠道创建失败不应影响主流程（例如部分定制 ROM 对 setBypassDnd 抛异常）
-            Log.e(TAG, "create notification channel failed", e);
+            Log.w(TAG, "setBypassDnd unsupported on this ROM", e); // modified
+        }
+    }
+
+    /** 渠道是否真实存在。创建失败 / 被用户在系统设置里删掉时返回 false。 */
+    private static boolean channelExists(Context context, String channelId) { // modified: 新增
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) { // modified
+            return true; // API 25 及以下没有渠道概念 // modified
+        }
+        try { // modified
+            NotificationManager manager = // modified
+                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE); // modified
+            return manager != null && manager.getNotificationChannel(channelId) != null; // modified
+        } catch (Exception e) { // modified
+            return false; // modified
         }
     }
 
     /** 构建提醒通知（不带轮次状态）。 */
     public static Notification build(Context context, String channelId, String sender,
                                      String keyword, String personName, String body) {
-        return build(context, channelId, sender, keyword, personName, body, null, false);
+        return build(context, channelId, sender, keyword, personName, body, null, false, true); // modified
     }
 
     /** 构建提醒通知，并附带一行「第几次提醒 / 几分钟后再响 / 已结束」。 */
     public static Notification build(Context context, String channelId, String sender,
                                      String keyword, String personName, String body,
                                      CharSequence status) {
-        return build(context, channelId, sender, keyword, personName, body, status, false);
+        return build(context, channelId, sender, keyword, personName, body, status, false, true); // modified
     }
 
     /**
@@ -152,6 +190,21 @@ public final class NotificationHelper {
                                      String keyword, String personName, String body,
                                      CharSequence status,
                                      boolean withFullScreenIntent) { // modified: 新增 FSI 开关
+        return build(context, channelId, sender, keyword, personName, body, status, // modified
+                withFullScreenIntent, true); // modified
+    }
+
+    /**
+     * 完整构建入口。
+     *
+     * @param withActions 是否附带「停止 / 稍后提醒」按钮。
+     *                    「等待中 / 已稍后 / 已结束」这类纯状态通知传 false ——
+     *                    否则用户能从一条「已结束」通知上点「稍后提醒」，把已停止的会话复活。
+     */
+    public static Notification build(Context context, String channelId, String sender, // modified
+                                     String keyword, String personName, String body, // modified
+                                     CharSequence status, boolean withFullScreenIntent, // modified
+                                     boolean withActions) { // modified: v4.2 新增动作开关
         String displaySender = TextUtils.isEmpty(personName) ? safeText(sender) : personName;
         String displayKeyword = safeText(keyword);
         String displayBody = safeText(body);
@@ -183,14 +236,32 @@ public final class NotificationHelper {
                 // 而不是只打开主界面；亮屏状态下这是用户获得强提醒的入口。
                 .setContentIntent(buildAlertScreenIntent(context, REQ_CONTENT,
                         sender, keyword, personName, body));
+        // modified: 【v4.2】minSdk 23 覆盖 API 23-25，这三代系统没有通知渠道，
+        // 渠道上配的闹铃音完全不存在；渠道创建失败时同理。补 builder 级声音/震动，
+        // 保证「第一声」在任何情况下都不会变成一条静音横幅。
+        // API 26+ 且渠道正常时 builder 的声音会被渠道设置覆盖，不会造成双重响铃。
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !channelExists(context, channelId)) { // modified
+            Uri legacySound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM); // modified
+            if (legacySound == null) { // modified
+                legacySound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION); // modified
+            }
+            builder.setSound(legacySound, AudioAttributes.USAGE_ALARM); // modified
+            builder.setVibrate(new long[]{0, 400, 300, 400}); // modified
+        }
         if (!TextUtils.isEmpty(status)) {
             builder.setSubText(status);
         }
-        builder.addAction(R.drawable.ic_block_24dp,
-                context.getString(R.string.stop), buildStopIntent(context));
-        builder.addAction(0,
-                context.getString(R.string.notif_snooze), buildSnoozeIntent(context));
-        builder.setDeleteIntent(buildStopIntent(context)); // modified: 划掉通知 = 停止提醒
+        // modified: 【v4.2 独立复审】原实现给所有通知（含「已结束」状态通知）都挂按钮，
+        // 且把「划掉通知」等同于「停止整个会话」。后者与项目核心需求
+        // 「用户不处理就 5 分钟后再提醒」直接冲突：随手划掉横幅会取消后续全部轮次。
+        // 现在：只有真正要叫人的一轮带按钮；划掉通知不再改变会话状态，
+        // 想彻底停止请点明确的「停止」按钮或告警页里的停止。
+        if (withActions) { // modified
+            builder.addAction(R.drawable.ic_block_24dp, // modified
+                    context.getString(R.string.stop), buildStopIntent(context)); // modified
+            builder.addAction(0, // modified
+                    context.getString(R.string.notif_snooze), buildSnoozeIntent(context)); // modified
+        }
 
         // modified: 仅当调用方明确要求、且系统确实允许时才挂全屏 Intent。
         // 未授予时不设置，让系统退化为悬挂通知（HUN），用户点击进入告警页；
@@ -211,7 +282,7 @@ public final class NotificationHelper {
     public static void post(Context context, String channelId, String sender, String keyword,
                             String person, String body, CharSequence status) {
         // 默认不带全屏 Intent：绝大多数调用都是「更新状态」而不是「叫人」。
-        post(context, channelId, sender, keyword, person, body, status, false);
+        post(context, channelId, sender, keyword, person, body, status, false, true); // modified
     }
 
     /**
@@ -222,6 +293,15 @@ public final class NotificationHelper {
     public static void post(Context context, String channelId, String sender, String keyword,
                             String person, String body, CharSequence status,
                             boolean withFullScreenIntent) { // modified: 新增 FSI 开关
+        post(context, channelId, sender, keyword, person, body, status, // modified
+                withFullScreenIntent, true); // modified
+    }
+
+    /** 完整发通知入口，可同时控制全屏 Intent 与通知动作。 */
+    public static void post(Context context, String channelId, String sender, String keyword, // modified
+                            String person, String body, CharSequence status, // modified
+                            boolean withFullScreenIntent, // modified
+                            boolean withActions) { // modified: v4.2 新增动作开关
         if (context == null) {
             return;
         }
@@ -236,9 +316,19 @@ public final class NotificationHelper {
                 return;
             }
             ensureChannels(app);
+            // modified: 【v4.2】渠道不存在时 notify() 会被系统静默丢弃且不抛异常。
+            // 再建一次；仍失败则退回系统默认渠道，至少保证通知能显示出来。
+            String effectiveChannel = channelId; // modified
+            if (!channelExists(app, channelId)) { // modified
+                ensureChannels(app); // modified
+                if (!channelExists(app, channelId)) { // modified
+                    effectiveChannel = NotificationChannel.DEFAULT_CHANNEL_ID; // modified
+                    Log.w(TAG, "target channel missing, fall back to default channel"); // modified
+                }
+            }
             manager.notify(NOTIFICATION_ID,
-                    build(app, channelId, sender, keyword, person, body, status,
-                            withFullScreenIntent));
+                    build(app, effectiveChannel, sender, keyword, person, body, status, // modified
+                            withFullScreenIntent, withActions)); // modified
         } catch (SecurityException e) {
             Log.e(TAG, "POST_NOTIFICATIONS not granted, cannot post alert", e);
         } catch (Exception e) {
@@ -265,8 +355,12 @@ public final class NotificationHelper {
      */
     public static void notifyDirectly(Context context, String sender, String keyword,
                                       String personName, String body) { // modified: 语义调整
-        // 这条路径的用途是「铃声没能播放，用通知音兜底叫人」，所以需要全屏 Intent。
-        post(context, CHANNEL_ID_AUDIBLE, sender, keyword, personName, body, null, true);
+        // modified: 【v4.2 独立复审】原实现这里传 withFullScreenIntent=true。
+        // 它只在「播放失败 / startForeground 失败」的降级路径被调用，若再带全屏 Intent，
+        // 系统会拉起 AlertActivity，而 AlertActivity 又会 startForegroundService 再失败一次，
+        // 形成「失败 -> 发通知 -> 拉页 -> 再失败」的无限循环（通知刷屏、闹铃反复响一声）。
+        // 它只是补一声，不需要也不应该再拉页面；动作按钮同样去掉。
+        post(context, CHANNEL_ID_AUDIBLE, sender, keyword, personName, body, null, false, false); // modified
     }
 
     /**

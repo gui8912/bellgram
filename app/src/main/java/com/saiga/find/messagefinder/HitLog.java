@@ -65,7 +65,11 @@ public final class HitLog {
                     }
                 }
             }
-            prefs.edit().putString(KEY_HIT_LOG, TextUtils.join(LINE_SEPARATOR, lines)).apply();
+            // modified: 【v4.2】apply() 只更新内存、把磁盘写入排进异步队列；
+            // AOSP 只在 Activity/Service stop 时等待落盘，BroadcastReceiver 返回后
+            // 进程随时可被回收。这里是唯一落在短信广播链路上的写操作，
+            // 改 commit() 同步落盘（20 条短文本，开销可忽略）。
+            prefs.edit().putString(KEY_HIT_LOG, TextUtils.join(LINE_SEPARATOR, lines)).commit(); // modified
         }
     }
 
@@ -77,9 +81,13 @@ public final class HitLog {
         if (context == null) {
             return "";
         }
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        String stored = prefs.getString(KEY_HIT_LOG, "");
-        return stored == null ? "" : stored;
+        // modified: 【v4.2】原实现只有 add() 加锁，clear()/dump() 裸读写；
+        // 「点清空」与「来短信」并发时，add() 可能把清空前的旧记录写回，清空失效。
+        synchronized (LOCK) { // modified
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context); // modified
+            String stored = prefs.getString(KEY_HIT_LOG, ""); // modified
+            return stored == null ? "" : stored; // modified
+        }
     }
 
     /**
@@ -91,27 +99,39 @@ public final class HitLog {
         if (context == null) {
             return;
         }
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        prefs.edit().remove(KEY_HIT_LOG).apply();
+        synchronized (LOCK) { // modified: 【v4.2】与 add()/dump() 共用同一把锁
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context); // modified
+            prefs.edit().remove(KEY_HIT_LOG).commit(); // modified: 同步落盘
+        }
     }
 
     private static String format(String sender, String keyword, String body) {
         String time = new SimpleDateFormat(TIME_PATTERN, Locale.getDefault()).format(new Date());
-        String safeSender = TextUtils.isEmpty(sender) ? "未知号码" : sender.trim();
-        String safeKeyword = TextUtils.isEmpty(keyword) ? "-" : keyword.trim();
+        // modified: 【v4.2】原实现只对 body 做单行化，sender / keyword 仅 trim()。
+        // 畸形 SP 号或历史关键词里含换行时，一条记录会被 stored.split("\n")
+        // 拆成多行，20 条环形缓冲被迅速挤空，设置页里字段也错位。
+        String safeSender = singleLine(sender, 24); // modified
+        String safeKeyword = singleLine(keyword, 30); // modified
+        if (safeSender.isEmpty()) { // modified
+            safeSender = "未知号码"; // modified
+        }
+        if (safeKeyword.isEmpty()) { // modified
+            safeKeyword = "-"; // modified
+        }
         return time + FIELD_SEPARATOR + safeSender + FIELD_SEPARATOR + "[" + safeKeyword + "] "
-                + snippet(body);
+                + singleLine(body, SNIPPET_MAX_LENGTH); // modified
     }
 
-    /** 单行化并截断正文，避免记录里混入换行符破坏存储格式。 */
-    private static String snippet(String body) {
-        if (body == null) {
+    /** 单行化 + 码点安全截断。所有写入记录的字段都必须经过这里。 */
+    private static String singleLine(String value, int maxLength) { // modified: v4.2 重写
+        if (value == null) { // modified
             return "";
         }
-        String singleLine = body.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').trim();
-        if (singleLine.length() <= SNIPPET_MAX_LENGTH) {
-            return singleLine;
+        String text = value.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').trim(); // modified
+        if (text.codePointCount(0, text.length()) <= maxLength) { // modified
+            return text; // modified
         }
-        return singleLine.substring(0, SNIPPET_MAX_LENGTH) + "…";
+        // modified: 按 code point 截，避免切断 emoji 的 surrogate pair 写入非法 UTF-16
+        return text.substring(0, text.offsetByCodePoints(0, maxLength)) + "…"; // modified
     }
 }

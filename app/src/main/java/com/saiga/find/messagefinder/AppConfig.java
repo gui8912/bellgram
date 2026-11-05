@@ -37,6 +37,8 @@ public final class AppConfig {
     // ---- 自动联想开关（旧实现使用名为 "Settings" 的独立 preference 文件）----
     private static final String FEATURE_PREF_NAME = "Settings";
     private static final String KEY_AUTO_SUGGESTION_DISABLED = "autoSuggDisabled";
+    /** modified: 【v4.2】引导完成的持久化标记，不依赖 PackageManager 组件禁用是否成功。 */
+    private static final String KEY_ONBOARDING_DONE = "onboarding_done_v4"; // modified
 
     // ---- 二次开发新增：提醒方式与重复策略（键名与 app_preferences.xml 严格一致）----
     /** 是否响铃。 */
@@ -87,11 +89,37 @@ public final class AppConfig {
                 appContext.getSharedPreferences(FEATURE_PREF_NAME, Context.MODE_PRIVATE));
     }
 
+    // modified: 【v4.2 独立复审】readInt() 的注释已经写明「键被写成别的类型时
+    // getString 会抛 ClassCastException，导致收到短信后再也不提醒」，但防护只覆盖了
+    // 3 个 int 键；getContact / getContactName / isRingEnabled / isVibrateEnabled /
+    // isMatchAllEnabled / parseQuietHour / 自动联想开关全是裸调用，同样在短信链路上。
+    // 这里把同一防护抽成通用读取器，覆盖所有 getString / getBoolean。
+    private String safeGetString(String key, String defaultValue) { // modified: 新增
+        try { // modified
+            return configPrefs.getString(key, defaultValue); // modified
+        } catch (ClassCastException e) { // modified
+            return defaultValue; // modified
+        }
+    }
+
+    private boolean safeGetBoolean(String key, boolean defaultValue) { // modified: 新增
+        return safeGetBoolean(configPrefs, key, defaultValue); // modified
+    }
+
+    private static boolean safeGetBoolean(SharedPreferences prefs, String key, // modified
+                                          boolean defaultValue) { // modified: 新增
+        try { // modified
+            return prefs.getBoolean(key, defaultValue); // modified
+        } catch (ClassCastException e) { // modified
+            return defaultValue; // modified
+        }
+    }
+
     /**
      * @return 用户配置的号码，未配置时返回空串（永不为 null，调用方无需判空）
      */
     public String getContact() { // modified: null -> 空串，消除调用侧 NPE
-        String value = configPrefs.getString(KEY_CONTACT, null);
+        String value = safeGetString(KEY_CONTACT, null); // modified: 类型不匹配兜底
         return value == null ? "" : value.trim();
     }
 
@@ -99,7 +127,7 @@ public final class AppConfig {
      * @return 用户配置的联系人姓名，未配置时返回空串
      */
     public String getContactName() {
-        String value = configPrefs.getString(KEY_CONTACT_NAME, null);
+        String value = safeGetString(KEY_CONTACT_NAME, null); // modified: 类型不匹配兜底
         return value == null ? "" : value.trim();
     }
 
@@ -111,13 +139,41 @@ public final class AppConfig {
         try {
             stored = configPrefs.getStringSet(KEY_KEYWORDS, null);
         } catch (ClassCastException e) {
-            // 极端情况：键被其它版本写成了非字符串集合类型，按“未配置”处理，避免崩溃
-            stored = null;
+            // modified: 【v4.2 独立复审】原实现 catch 后直接 stored = null，
+            // 把「旧版本把 message 存成逗号分隔 String」当成「用户从未配置」，
+            // 返回空集合后 SMSReceiver 直接丢弃每一条短信：关键词静默全丢、
+            // 界面还显示「未配置」，用户没有任何线索。这里做一次性迁移。
+            stored = migrateLegacyKeywords(); // modified
         }
         if (stored == null || stored.isEmpty()) {
             return Collections.emptySet();
         }
         return Collections.unmodifiableSet(new LinkedHashSet<>(stored));
+    }
+
+    /**
+     * 把旧版以字符串保存的关键词迁移成 Set。
+     *
+     * @return 迁移后的集合；无法迁移返回 null（由调用方按「未配置」处理）
+     */
+    private Set<String> migrateLegacyKeywords() { // modified: v4.2 新增
+        try { // modified
+            String legacy = configPrefs.getString(KEY_KEYWORDS, null); // modified
+            if (legacy == null || legacy.trim().isEmpty()) { // modified
+                return null; // modified
+            }
+            List<String> parsed = KeywordMatcher.parseKeywords(legacy); // modified
+            if (parsed.isEmpty()) { // modified
+                return null; // modified
+            }
+            Set<String> migrated = new LinkedHashSet<>(parsed); // modified
+            // modified: 用 commit 同步落盘，避免下次读仍触发迁移；传新 Set 避免污染缓存
+            configPrefs.edit().putStringSet(KEY_KEYWORDS, new LinkedHashSet<>(migrated)).commit(); // modified
+            return migrated; // modified
+        } catch (Exception e) { // modified
+            // 键存的既不是 Set 也不是 String（例如 Integer）：确实无法恢复
+            return null; // modified
+        }
     }
 
     /**
@@ -180,7 +236,7 @@ public final class AppConfig {
      * @return 自动联想是否被用户关闭（默认 true，与旧版本默认行为一致）
      */
     public boolean isAutoSuggestionDisabled() {
-        return featurePrefs.getBoolean(KEY_AUTO_SUGGESTION_DISABLED, true);
+        return safeGetBoolean(featurePrefs, KEY_AUTO_SUGGESTION_DISABLED, true); // modified: 类型兜底
     }
 
     /**
@@ -192,27 +248,48 @@ public final class AppConfig {
         featurePrefs.edit().putBoolean(KEY_AUTO_SUGGESTION_DISABLED, disabled).apply();
     }
 
+    /** @return 用户是否已经走完首次引导 */
+    public boolean isOnboardingDone() { // modified: v4.2 新增
+        return safeGetBoolean(featurePrefs, KEY_ONBOARDING_DONE, false); // modified
+    }
+
+    /**
+     * 标记引导已完成。
+     *
+     * <p>modified: 【v4.2 独立复审】原实现只靠 setComponentEnabledSetting(DISABLED)
+     * 判定引导是否结束，而该调用在受管设备 / 工作资料 / 部分 ROM 上会失败且被静默吞掉。
+     * 一旦失败，MainActivity 每次冷启动都会再次拉起引导页，用户卡在「完成 -> 又回引导页」。
+     * 这里补一个独立的持久化标记作为主判定，组件禁用降级为加固手段。
+     */
+    public void setOnboardingDone(boolean done) { // modified: v4.2 新增
+        featurePrefs.edit().putBoolean(KEY_ONBOARDING_DONE, done).commit(); // modified
+    }
+
     // ==================== 二次开发新增：提醒方式与重复策略 ====================
 
     /**
      * @return 是否响铃（默认 true）
      */
     public boolean isRingEnabled() { // modified: 新增
-        return configPrefs.getBoolean(KEY_RING_ENABLED, true);
+        return safeGetBoolean(KEY_RING_ENABLED, true); // modified: 类型兜底
     }
 
     /**
      * @return 是否震动（默认 true）
      */
     public boolean isVibrateEnabled() { // modified: 新增
-        return configPrefs.getBoolean(KEY_VIBRATE_ENABLED, true);
+        return safeGetBoolean(KEY_VIBRATE_ENABLED, true); // modified: 类型兜底
     }
 
     /**
      * @return 单次响铃时长（秒）；0 表示一直响到用户手动停止
      */
     public int getRingDurationSec() { // modified: 新增
-        return readInt(KEY_RING_DURATION, DEFAULT_RING_DURATION_SEC);
+        // modified: 【v4.2】另两个 int 读取器都做了范围钳制，唯独这里没有。
+        // 脏配置写入 999999 会让前台服务与 WakeLock 挂近 12 天；负值会立即结束本轮。
+        // 与 arrays.xml 的合法值域 {0,30,60,120} 对齐，上限取 120。
+        int value = readInt(KEY_RING_DURATION, DEFAULT_RING_DURATION_SEC); // modified
+        return Math.max(0, Math.min(value, 120)); // modified
     }
 
     /**
@@ -291,7 +368,7 @@ public final class AppConfig {
      * @return 是否要求“全部关键词都出现”才触发（默认 false，与原版“任意命中”一致）
      */
     public boolean isMatchAllEnabled() { // modified: 新增
-        return configPrefs.getBoolean(KEY_MATCH_ALL, false);
+        return safeGetBoolean(KEY_MATCH_ALL, false); // modified: 类型兜底
     }
 
     /**
@@ -317,7 +394,11 @@ public final class AppConfig {
         if (start < 0 || end < 0) {
             return false;
         }
-        int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+        // modified: 【v4.2】显式声明「按设备本地时区、与语言无关」，避免隐式依赖
+        // 默认 Locale 造成跨区域行为差异；DST 跳变的影响见审计报告风险章节。
+        int hour = java.util.Calendar.getInstance( // modified
+                java.util.TimeZone.getDefault(), java.util.Locale.ROOT) // modified
+                .get(java.util.Calendar.HOUR_OF_DAY); // modified
         return QuietHours.isActive(start, end, hour);
     }
 
@@ -331,7 +412,7 @@ public final class AppConfig {
      * @return 小时值 0-23；未启用或解析失败返回 -1
      */
     private int parseQuietHour(boolean start) { // modified: 新增
-        String raw = configPrefs.getString(KEY_QUIET_HOURS, DEFAULT_QUIET_HOURS);
+        String raw = safeGetString(KEY_QUIET_HOURS, DEFAULT_QUIET_HOURS); // modified: 类型兜底
         if (raw == null) {
             return -1;
         }
@@ -345,7 +426,10 @@ public final class AppConfig {
         }
         try {
             int hour = Integer.parseInt(parts[start ? 0 : 1].trim());
-            return QuietHours.normalizeHour(hour);
+            // modified: 【v4.2】原实现把 99 / 25 这类越界值 normalizeHour 成 3 / 1，
+            // 等于把一份脏配置静默改写成「每天凌晨 3 点不响铃」，与类注释承诺的
+            // 「无法解析的值按未启用处理，避免永远不响铃」相反。越界一律返回 -1。
+            return hour >= 0 && hour <= 23 ? hour : -1; // modified
         } catch (NumberFormatException e) {
             return -1;
         }
