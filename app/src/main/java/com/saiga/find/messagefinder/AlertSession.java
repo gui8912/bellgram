@@ -6,7 +6,7 @@ package com.saiga.find.messagefinder;
 // 也可能在闹钟到来时进程已被回收，轮次与短信内容必须持久化，不能放在服务内存里。
 //
 // 设计参考：Android 官方《Background work / Schedule alarms》中「把任务状态与
-// 触发者解耦」的做法，以及系统闹钟应用 Clock 用 SharedPreferences 记录下一次响铃信息的思路。
+// 触发者解耦」的做法，以及系统闹钟应用 Clock 用 SharedPreferences 记录下一次响铃状态的思路。
 // 本项目只借用思想，未复制任何第三方代码。
 
 import android.content.Context;

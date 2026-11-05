@@ -39,6 +39,42 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Prepare fixed signing keystore
+        # modified: 固定签名材料。
+        # 为什么需要：CI runner 每次都是全新机器，AGP 自动生成的 debug.keystore
+        # 每次都是不同的 key，导致连续两次构建出的 APK 签名不一致（已实测比对
+        # CERT.RSA 的 SHA-256 不同）。后果是新包无法覆盖安装旧包，必须卸载重装，
+        # 而卸载会丢掉全部配置。
+        # 这里的逻辑：仓库里没有 keystore 就在本次生成一份，用它签名并上传为
+        # artifact；把该 artifact 下载后提交进仓库，之后本地与 CI 就永远用同一个 key。
+        id: keystore
+        run: |
+          if [ -f keystore/bellgram.jks ]; then
+            echo "仓库已存在固定 keystore，直接使用"
+            echo "generated=false" >> "$GITHUB_OUTPUT"
+          else
+            mkdir -p keystore
+            keytool -genkeypair -v \
+              -keystore keystore/bellgram.jks \
+              -storetype PKCS12 \
+              -alias bellgram \
+              -keyalg RSA -keysize 2048 -validity 10950 \
+              -storepass bellgram -keypass bellgram \
+              -dname "CN=Bellgram, OU=Personal, O=Self, L=Beijing, ST=Beijing, C=CN"
+            echo "generated=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ 本次新生成了签名 keystore，请下载 signing-keystore 工件并提交进仓库，"
+            echo "   否则下次构建的签名会再次变化，导致无法覆盖安装。"
+          fi
+
+      - name: Upload generated keystore (first run only)
+        if: steps.keystore.outputs.generated == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: signing-keystore
+          path: keystore/bellgram.jks
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:

@@ -1,213 +1,179 @@
-[![Build debug APK](https://github.com/gui8912/bellgram/actions/workflows/build-apk.yml/badge.svg)](https://github.com/gui8912/bellgram/actions/workflows/build-apk.yml)
+# 铃达 · Bellgram
 
-> **铃信 / Bellgram（本目录为二次开发版本 v4.0.1 · Android 16 合规版 · 已过独立复审 · 已编译出包）**
-> - 应用显示名已由「Priority Alerts / 优先提醒」改为 **「铃信」/「Bellgram」**；
->   工程目录、`applicationId`（`com.saiga.find.messagefinder`）与包名**保持不变**，覆盖安装不受影响。
-> - 上游项目：saiga006/message-finder（GPL-3.0），原始版本 2.9.8
-> - **想直接装到手机上 → 装 `bellgram-v4.0.1-debug.apk`，或从仓库 Actions 页面下载**
->   （见下方「安装包」一节）；想自己编译 → 看 [BUILD.md](BUILD.md)（环境要求、命令行、报错对照、8 步真机自检）
-> - **最新复审结论 → [REVIEW_REPORT_V5.md](REVIEW_REPORT_V5.md)**（v4.0.1，独立复审 7 个维度，
->   推翻了上一版 6 条结论，修掉 **13** 处缺陷，其中 4 处会直接破坏核心功能）
-> - **完整改造记录 → [AUDIT_REPORT_V4.md](AUDIT_REPORT_V4.md)**
->   （**[AUDIT_REPORT.md](AUDIT_REPORT.md)** 是 v3.0.0 历史存档，其中 4 项结论已被推翻，阅读时以新版为准）
->
-> ### 安装包
-> - 仓库 **Actions → Build debug APK → 最近一次成功运行 → Artifacts → `bellgram-debug-apk`**
->   （private 仓库需登录；Artifact 保留 30 天）
-> - 已导出一份放在工程目录上一级：`bellgram-v4.0.1-debug.apk`
->   9.63 MB / `versionCode 19` / `versionName 4.0.1` / `targetSdk 36`，实测包名、权限、
->   组件导出状态均符合预期（核验过程见复审报告 §12.4）
-> - 每次 push 到 `main` 自动跑单测 + 重新出包，见 `.github/workflows/build-apk.yml`
->
-> ### v4.0.1 独立复审修掉的关键问题
-> - **双重响铃（老用户必现）**：静音渠道沿用了 v3 的 `priority_alert_v2`，而通知渠道的声音
->   **创建后不可修改**，v3 该渠道是带提示音建的 → 升级用户会出现「通知音 + 播放器」双响。
->   已换新 ID 并清理旧渠道。
-> - **全屏页误弹**：`build()` 原来无差别给所有通知挂 `setFullScreenIntent`，
->   导致「提醒已结束」「稍后提醒」这类状态通知在锁屏时也会弹全屏页，服务前台通知还可能
->   与告警页互相触发。已改为只有真正要叫人的那一轮才带。
-> - **铃声停不下来**：单轮时长选「一直响到手动停止」时，若后台停止服务被系统拒绝，
->   铃声会无限响。已补 `stopService` 兜底。
-> - **号码校验静默改写配置**（由 CI 单元测试发现，逐行复审也没看出来）：
->   `isValidInput()` 只看 `stripSeparators()` 之后的长度，而后者会丢弃一切非数字字符。
->   于是 `138 0013 8000 转 1234` 被判为合法，存进配置的却是原始串，`canonical()` 再取
->   末 11 位就成了**另一个号码**——短信永远不响，界面上却完全正常。已加字符白名单。
-> - **旋转屏幕铃声重启** / **设置页重复装载 Fragment** / **MIUI 上全屏页被锁屏盖住** /
->   **配置损坏导致提醒静默失效** —— 均已修复，逐条见复审报告 §1 / §12.2。
-> - **`gradle-wrapper.jar` 仍是 Gradle 4.6**（上一版只改了 properties 没换 jar），
->   已替换为官方 8.13 引导器，这是「克隆后能直接构建」的前提。
->
-> ### 功能总览（v3 起累积，v4 保留）
-> - 构建链：AGP **8.11.1** / Gradle **8.13** / JDK **17** / **compileSdk & targetSdk 36**（Android 16）
-> - 主链路：`SMS_RECEIVED` → 带闹铃音高优先级通知 → 锁屏全屏告警页（用户可见时才启动 FGS）
->   → 单轮铃声/震动 → `AlarmManager.setAlarmClock()` 精确闹钟排下一轮 → 重复通知
-> - 提醒策略：响铃/震动独立开关；单轮时长（直到手动停止 / 30s / 60s / 2min）；
->   每 N 分钟自动再提醒（默认 5 分钟、最多 4 轮）；轮次进度直接写在通知上
-> - 规则：任意 / 全部关键词两种匹配模式；夜间静音时段（只震动）；规则演练（粘一段短信立即判断）
-> - 交互：锁屏全屏告警、通知上「停止」「稍后提醒」、最近 20 条命中记录、权限体检
->
-> ### 构建与真机注意
-> - **已通过 GitHub Actions 实际编译**：JDK 17 + Gradle 8.13 + AGP 8.11.1 + platform 36，
->   单测与 `assembleDebug` 均为 success；产出 APK 已核验包名 / 版本 / targetSdk / 组件导出状态。
->   但**未在真机验证**——装到红米 K60 Pro 后请按 `REVIEW_REPORT_V5.md` §11.4 的 4 条逐项确认。
->   本地编译见 `BUILD.md`。
-> - 红米 K60 Pro / HyperOS 必读：自启动=开、省电策略=无限制、允许锁屏与悬浮通知、
->   允许通知、允许「全屏通知」（Android 14+ 默认不给）、允许接收短信。
->   缺任一项表现为「短信到了却不响」或「只响一次就没了」。
+**只让该响的短信响，而且响到你处理为止。**
+
+把手机里含指定关键词的短信，变成"闹钟级"提醒：锁屏整页告警 + 响铃震动 + 没处理就每 5 分钟再来一次。
+
+[![Build debug APK](https://github.com/gui8912/bellgram/actions/workflows/build-apk.yml/badge.svg)](https://github.com/gui8912/bellgram/actions/workflows/build-apk.yml)
+[![Latest release](https://img.shields.io/github/v/release/gui8912/bellgram?include_prereleases&sort=semver&label=release)](https://github.com/gui8912/bellgram/releases/latest)
+![Platform](https://img.shields.io/badge/Android-6.0%2B%20(API%2023%2B)-3DDC84)
+![Target](https://img.shields.io/badge/targetSdk-36%20(Android%2016)-3DDC84)
 
 ---
 
-# message-finder
-An app to trigger **notifications** when receiving **priority messages**(*determined by user keyword*) 
+## 为什么需要它
 
-<img src="https://github.com/saiga006/message-finder/blob/master/priority_notifications.png" >
+普通短信提示音响一下就过去了。手机在口袋里、开了静音、戴着耳机、正在开会——都可能错过。而错过的那条，恰好是银行到账、验证码、客户确认、家人急事。
 
-### How to use:
+系统闹钟很能叫醒人，但它只认时间，不认内容。
 
-  1. User inputs contact number(optional) and the keyword(required), for which SOS kind of notification will be raised.
-  2. Press trigger button to save the config.
-  3. So that the app uses it everytime, when a sms is received and validates it, even after reboot it works.
-  4. User needs to accept the READ SMS permission or else the app wouldn't work fine as expected.
-  5. To stop the SOS app functionality, press the clear config button.
-  6. Users can see their saved config on pressing settings icon inside the app
-  
-  <img src="https://github.com/saiga006/message-finder/blob/master/2.png" >
+铃达把这两件事接起来：**按短信内容触发，用闹铃的强度提醒，不处理就一直提醒。**
 
-### Features:
+适用场景：只关心特定几类信息（"到账""验证码""报警""急"），其余短信不想被打扰。
 
-  - It supports multiple keywords as input to identify the text (either in comma or space seperated format).
-  - Triggers notification, when any one of the keywords are matched with received message.
-  - On receiving notification, ringtone is played at high volume, even if the phone is in silent mode.
-  - OnBoarding Screen for FTI by User
+## 功能
 
-  <img src="https://github.com/saiga006/message-finder/blob/master/5.png" width="400" height="225" >
-  
-## Download the app at:
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
-    alt="Get it on F-Droid"
-    height="80">](https://f-droid.org/en/packages/com.saiga.find.messagefinder/)
+| 能力 | 说明 |
+|---|---|
+| **关键词规则** | 两种匹配模式：命中任意一个 / 必须全部命中。全角半角、大小写自动归一，不用纠结输入法 |
+| **号码限定**（可选） | 兼容 `+86` / `0086` / 带空格横线括号的写法，也支持 10086 这类短号 |
+| **响铃 + 震动** | 可独立开关，只震动不响铃也支持 |
+| **单轮时长** | 直到手动停止 / 30 秒 / 60 秒 / 2 分钟 |
+| **未处理自动再提醒** | 默认每 5 分钟再来一次，最多 4 轮；可关掉，也可设为不限次数。轮次进度直接写在通知上 |
+| **锁屏全屏告警** | 息屏或锁屏时整页弹出，必须点「停止」或「稍后提醒」才能继续用手机 |
+| **夜间静音时段** | 设定时段内只震动不出声，支持跨零点（如 23 点到 7 点） |
+| **规则演练** | 粘一段示例短信，边输边告诉你"会不会响、命中了哪个词"，不用真等一条短信来试 |
+| **命中记录** | 最近 20 条，解决"到底响没响过"的疑问 |
+| **权限体检** | 逐项检查短信权限、通知权限、通知总开关、全屏 Intent、电池优化白名单，每项可一键跳到对应系统设置 |
 
-  
-## Beta Release V2.9.6
+## 安装
 
-#### Beta 2.9.6 Changelog (Play Store Variant):
-  - Removed the contacts permission and disabled the experimental auto suggestion feature currently
-    (Source Code is available)
+从 [**Releases**](https://github.com/gui8912/bellgram/releases/latest) 下载 `bellgram-*.apk`，传到手机点击安装。
 
-#### Beta 2.9.0 Changelog:
-  - Added support for auto suggestion experimental feature through app settings, by default it is disabled for user 
-  - Added support for default ringtone inside the app resource to be used for priority alerts
-  - New icons and modified the app name to "Priority Alerts" as it is synonym with the functionality
-  - Refactored permission dialog flow and removed the dependencies for read external storage and large heap feature
-  - Bug fix:
-      1. Efficient solution for bitmap rendering is proposed to fix the onboarding crash issue appeared in low end
-         devices
+- 使用固定自用签名，后续版本可直接覆盖升级，配置不丢。
+- 是 debug 构建，仅供个人自用，不上架任何应用商店，也不适合二次分发。
+- 也可以从 [Actions](https://github.com/gui8912/bellgram/actions/workflows/build-apk.yml) 取最新构建产物（需解压 zip）。
 
- 
-#### Beta 2.5.0 Changelog:
-  - Added support for app settings screen, user can now see their saved config after reboots and closing the app too.
-  - Displays saved app configurations, app versions and added auto suggestion as an experimental feature
-  - More preference is given to contact picker as it is less error prone and doesn't require read contacts permission
-    from the user like the auto suggestion feature
+## 装完必做：五项系统设置
 
-#### Beta 2.1.0 Changelog:
-  - Added support for contact picker feature, now user can pick their contacts directly from contact app, instead of typing manually
-  - Refactored and redefined permission dialog flow for auto suggestion feature
-  - Bug Fix:
-    1. Temp crash fix for bitmap memory consumption in FTI page for low end devices.
-    
-#### Beta 2.0.0 Changelog:
-  - Support for Android 10 
-  - Onboarding Screens for first time users
-  - Error Checking func. for contact input field
-  - App Size reduction by half 28MB to 13MB
-  - Bug Fixes
-    1. Permission Dialog dont ask again option fix
-    2. Bugs related to edit text fields
+国产 ROM 会主动限制后台应用。**缺任何一项，都会表现为「短信到了却不响」或「只响一次就没了」。**
 
+以红米 K60 Pro / HyperOS 为例：
 
-#### Beta 1.3.0 Changelog:
-  - Support for Android 10 
-  - Onboarding Screens for first time users
-  - App Size reduction by half 28MB to 13MB
-  - Bug Fixes
-    1. Permission Dialog dont ask again option fix
-    2. Bugs related to edit text fields
+| # | 设置项 | 路径 |
+|---|---|---|
+| 1 | 自启动 = 开 | 设置 → 应用设置 → 应用管理 → 铃达 → 自启动 |
+| 2 | 省电策略 = 无限制 | 同上 → 省电策略 |
+| 3 | 允许锁屏通知 + 悬浮通知 | 同上 → 通知管理 |
+| 4 | 允许「全屏通知」 | 同上 → 其他权限 → 显示在其他应用上层 / 全屏通知（Android 14+ 默认不授予） |
+| 5 | 允许接收短信 | 同上 → 权限 → 短信 |
 
+装好后打开 App，首页状态条会显示还差几项；点「权限体检」可逐项处理并直达系统设置。
 
-#### Beta 1.2.0 Changelog:  
- 
-  - App permissions can be configured easily with new request permissions design
-  - Bug Fixes
-    1. IME popup glitches, UI glitches, landscape mode glitches
-    2. Fixed runtime Permission request
-    3. Fixed the ringtone issue that was occuring in some phones
-    4. Snackbar related bug fixes
-    
+## 工作原理
 
-### Compatibility: 
+`targetSdk 36`（Android 16）之后有两条硬限制，直接决定了架构：
 
-  - Currently expected to work on phones from Android M to Android Q.
+1. **不允许从 `SMS_RECEIVED` 广播启动前台服务** —— 官方豁免清单里没有短信广播。老写法"收到短信就在广播里 `startForegroundService()`"在 Android 12+ 会抛 `ForegroundServiceStartNotAllowedException`，且是在后台静默失败。
+2. **`shortService` 类型的前台服务约 3 分钟超时** —— 撑不住"每 5 分钟提醒一次"。
 
-### Code Verbosity Level: 
+所以主链路改成**通知驱动**，让前台服务只在"用户可见"时启动：
 
-  - Full verbose comments in code is available
+```
+短信广播 SMS_RECEIVED
+   │  号码过滤 → 长短信多包拼接 → 关键词匹配 → 去重 → 命中日志
+   ▼
+带闹铃音的高优先级通知（含全屏 Intent）        ← 这是唯一可靠的唤醒入口
+   │
+   ├─ 息屏/锁屏 → 全屏告警页 AlertActivity（用户可见，此时启动 FGS 合法）
+   │                  │
+   │                  ▼
+   └─ 亮屏       →  单轮播放服务 SMSForegroundService（mediaPlayback）
+                      │  播放 30s / 60s / 直到手动停止
+                      ▼
+                  AlarmManager.setAlarmClock() 排下一轮
+                      │  用闹钟语义，不需要 SCHEDULE_EXACT_ALARM 权限，Doze 下也能唤醒
+                      ▼
+                  到点 → RepeatAlarmReceiver → 重新发通知（回到第二步）
+```
 
-### App Screenshots:
+几个关键设计取舍：
 
-  1. <img src="https://github.com/saiga006/message-finder/blob/master/App_Notification.png" width="150" height="300">
-     
-  > "Notification when priority message is received"
-  
-  2. <img src="https://github.com/saiga006/message-finder/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/1.png" width="150" height="300">
-  
-  > "Activity Screen of Message Finder, where user inputs the contact number and keyword, for which SOS has to be raised"
-  
-  3. <img src="https://github.com/saiga006/message-finder/blob/master/fastlane/metadata/android/en-US/images/phoneScreenshots/3.png" width="150" height="300">
-  
-  > "Example user input"
-  
-  4. <img src="https://github.com/saiga006/message-finder/blob/master/privacy policy.png" width="150" height="300">
-  
-  > "App Settings Screen"
-  
-  5. <img src="https://github.com/saiga006/message-finder/blob/master/FTI1.png" width="150" height="300"> <img src="https://github.com/saiga006/message-finder/blob/master/FTI2.png" width="150" height="300"> <img src="https://github.com/saiga006/message-finder/blob/master/FTI3.png" width="150" height="300">
-  
-  > "FTI Screens"
+- **为什么用 `setAlarmClock()` 而不是 `setExactAndAllowWhileIdle()`**：前者是"用户可见的闹钟"，系统在 Doze 下优先保证唤醒，且不需要申请精确闹钟权限；代价是状态栏会出现闹钟图标。
+- **为什么服务只播一轮就退出**：常驻服务会被系统回收、会撞 3 分钟超时、还会触发 `onTimeout` ANR。改成"播放器 + 精确闹钟"后，每轮之间不占任何常驻资源。
+- **为什么通知渠道分两个**：`priority_alert_audible_v4`（带闹铃音，广播阶段先出声）和 `priority_alert_v2`（静音，服务接手后只更新文案）。这样既保证第一声一定响，又避免"通知音 + 播放器"双重响铃。注意 Android 的通知渠道声音**创建后不可修改**，所以升级改造时只能换新渠道 ID。
+- **为什么状态通知不带全屏 Intent**：只有真正要叫人的那一轮才带。否则用户点过「停止」之后，锁屏会再弹出一个写着"提醒已结束"的全屏页。
 
-#### Medium Arcticles ( which describes this app design principles along with UML diagrams and steps to publish such an app in an app store):
-  - [App design principles with UML diagrams](https://medium.com/the-uncharted/publishing-an-android-app-d8e3bca598b3)
-  - [Debugging and publishing of android app](https://medium.com/the-uncharted/publishing-an-android-app-part-2-7b8787861e62)
+## 项目结构
 
-#### Resources:
-  - [Android Developer Guide - Notifications](https://developer.android.com/guide/topics/ui/notifiers/notifications)
-  - [Android Developer Guide - MediaPlayer](https://developer.android.com/guide/topics/media/mediaplayer)
-  - [Android Developer Guide - Services](https://developer.android.com/guide/components/services)
-  - [Android Developer Guide - Foreground Services](https://developer.android.com/guide/components/services#Foreground)
-  - [Android Developer Guide - Toast](https://developer.android.com/guide/topics/ui/notifiers/toasts)
-  - [Media Player State Machine](https://developer.android.com/images/mediaplayer_state_diagram.gif)
-  - [Styles and Themes Codepath Tutorial](https://guides.codepath.com/android/Styles-and-Themes)
-  - For nitty gritty details on Styles and Themes - [Android Developer Guide](https://developer.android.com/guide/topics/ui/look-and-feel/themes)
-  - For Receiving SMS in Android - [Tutorial](https://google-developer-training.github.io/android-developer-phone-sms-course/Lesson%202/2_p_2_sending_sms_messages.html)
-  - Requesting Runtime Permissions in Android - [Android Developer Guide](https://developer.android.com/training/permissions/requesting#perm-check)
-  - Shared preferences in Android - [Android Developer Guide](https://developer.android.com/training/data-storage/shared-preferences) 
-  - [Vibration effect android tutorial](https://proandroiddev.com/using-vibrate-in-android-b0e3ef5d5e07)
-  - Codepath Tutorial on [Drawable](https://guides.codepath.com/android/drawables)
-  - Background Service Limitations [Android Oreo](https://developer.android.com/about/versions/oreo/background#services) and [Android Q](https://developer.android.com/guide/components/activities/background-starts)
-  - Good tutorial on [custom notifications](https://medium.com/hootsuite-engineering/custom-notifications-for-android-ac10ca67a08c)
-  - For [controlling volume and about fixed volumes devices](https://developer.android.com/guide/topics/media-apps/volume-and-earphones) in android
-  - For app [logo design](https://www.freelogodesign.org/) and adding [app icons](https://medium.com/@ujikit/add-icons-to-the-android-application-from-android-studio-ide-cd1af9348749) and [notification icons](https://developer.android.com/studio/write/image-asset-studio?hl=de#create-notification)
-  - Adding Splash Screen [Tutorial](https://android.jlelse.eu/launch-screen-in-android-the-right-way-aca7e8c31f52)
-  - Integration [Material Design](https://github.com/material-components/material-components-android/blob/master/docs/getting-started.md)
-    and customizing [Snackbar](https://material.io/develop/android/components/snackbars)
-  - App Signing [Tutorial](https://youtu.be/akDXw9n3gFY)
-  - Proguard and Apk Size Reduction [Writeup](https://medium.com/androiddevelopers/practical-proguard-rules-examples-5640a3907dc9)
-  - Add Onboarding Screen [Tutorial](https://www.youtube.com/watch?v=byLKoPgB7yA)
-  - Add Circular ImageView [Library](https://github.com/hdodenhof/CircleImageView)
-  - Loading Large Bitmaps Efficiently [Android Guide](https://developer.android.com/topic/performance/graphics/load-bitmap),
-    [StackOverflow](https://stackoverflow.com/questions/21392972/how-to-load-large-images-in-android-and-avoiding-the-out-of-memory-error)
-  - Contact Picker [Tutorial](https://www.crazygeeksblog.com/2017/01/android-contact-picker-example/)
-  - Play default Ringtone [Tutorial](https://abhiandroid.com/androidstudio/add-audio-android-studio.html)
-  - App Settings Screen [Blog Post](https://medium.com/google-developer-experts/exploring-android-jetpack-preferences-8bcb0b7bdd14) and App preferences [Blog Post](https://medium.com/@JakobUlbrich/building-a-settings-screen-for-android-part-1-5959aa49337c)
-  - Obviously StackOverflow for issues during development and bug fixing :-)
-  
+```
+app/src/main/java/com/saiga/find/messagefinder/
+├── 入口与调度
+│   ├── SMSReceiver.java            短信广播：过滤、拼接、匹配、去重、记日志
+│   ├── AlertDispatcher.java        统一调度入口：新短信 / 重复闹钟 / 停止 / 稍后 / 结束
+│   ├── AlertScheduler.java         精确闹钟（setAlarmClock）
+│   ├── RepeatAlarmReceiver.java    闹钟到点入口，只重发通知，绝不启动服务
+│   └── AlertActionReceiver.java    通知按钮动作（停止 / 稍后提醒），走广播而非 getService
+├── 提醒播放
+│   ├── SMSForegroundService.java   单轮播放器：响铃 + 震动，播完即退
+│   ├── NotificationHelper.java     通知、渠道、PendingIntent、全屏 Intent 唯一构建入口
+│   └── AlertActivity.java          锁屏全屏告警页
+├── 状态与规则（纯 Java，可单测）
+│   ├── AlertSession.java           跨组件会话状态持久化
+│   ├── RoundPolicy.java            轮次规则：总轮数 / 是否还有下一轮 / 稍后提醒间隔
+│   ├── KeywordMatcher.java         关键词归一化与匹配
+│   ├── PhoneNumbers.java           号码规范化与比对
+│   └── QuietHours.java             夜间静音时段判定
+├── 配置与界面
+│   ├── AppConfig.java              全应用配置统一门面
+│   ├── MainActivity.java           主界面
+│   ├── SettingsActivity.java       设置页（AndroidX Preference）
+│   ├── PermissionChecker.java      权限体检
+│   ├── EdgeToEdgeHelper.java       边到边 insets 适配
+│   └── HitLog.java                 命中记录
+└── 引导
+    ├── Onboarding.java / SliderAdapter.java / MyDialogFragment.java
+```
+
+## 构建
+
+```bash
+# 需要 JDK 17、Android SDK Platform 36
+./gradlew :app:assembleDebug              # Linux / macOS
+gradlew.bat :app:assembleDebug            # Windows
+```
+
+产物：`app/build/outputs/apk/debug/app-debug.apk`
+
+环境要求与常见报错处理见 [BUILD.md](BUILD.md)。
+
+| 组件 | 版本 |
+|---|---|
+| AGP | 8.11.1 |
+| Gradle | 8.13 |
+| JDK | 17 |
+| compileSdk / targetSdk | 36 / 36 |
+| minSdk | 23（Android 6.0） |
+
+## 已知限制
+
+这些是设计边界，不是待修 bug：
+
+- **通知权限被拒 = 完全静默**。`targetSdk 31+` 下不能从后台起服务，通知是唯一唤醒入口。用户拒绝通知权限或关闭通知总开关后，应用没有任何办法发出声音。已用状态条红字 + 权限体检 + 日志提示，但只能靠用户自己配置。
+- **首次安装后需要手动放行 5 项系统设置**（见上文），国产 ROM 无法通过代码绕过。
+- **`setAlarmClock` 会显示系统闹钟图标**，这是使用该 API 的固有代价。
+- 只在红米 K60 Pro / HyperOS 上做过目标验证，其他 ROM 未逐一测试。
+
+## 版本
+
+| 版本 | 内容 |
+|---|---|
+| **v4.1.0** | 更名为「铃达」；固定自用签名，解决 CI 每次构建签名不同导致无法覆盖安装的问题；修正号码校验会静默改写用户输入的问题 |
+| v4.0.1 | 独立复审后的 13 项缺陷修复：老用户升级双重响铃、状态通知误弹全屏页、一直响模式无法停止、旋转屏幕铃声重启、MIUI 全屏页被锁屏盖住、`gradle-wrapper.jar` 版本错配等 |
+| v4.0.0 | Android 16 合规改造：`targetSdk 29 → 36`、主链路重构为通知驱动 + 精确闹钟、AndroidX Preference 迁移、边到边与预测式返回适配、权限体检 |
+| v3.0.0 | 19 项 P1 缺陷修复、界面重做、响铃/震动/重复提醒策略、夜间静音、规则演练、稍后提醒、锁屏全屏告警 |
+
+详细记录：
+- [REVIEW_REPORT_V5.md](REVIEW_REPORT_V5.md) —— 独立复审（7 个核查维度，含 CI 实证与 APK 核验）
+- [AUDIT_REPORT_V4.md](AUDIT_REPORT_V4.md) —— Android 16 合规改造全过程
+- [AUDIT_REPORT.md](AUDIT_REPORT.md) —— v3.0.0 历史存档，其中 4 项结论已被后续版本推翻
+
+## 致谢与许可
+
+本项目是 [saiga006/message-finder](https://github.com/saiga006/message-finder)（v2.9.8，GPL-3.0）的个人二次开发版本。原始工程由 saiga006 开发，遵循 GPL-3.0 许可，本衍生版本同样遵循 GPL-3.0。
+
+原工程的定位是"用关键词匹配短信并提醒"，本版本围绕**提醒可靠性**做了架构级重写（见上文"工作原理"），并针对中国大陆号码格式、国产 ROM 后台限制、Android 12–16 的权限与前台服务变更做了适配。
+
+复用第三方代码的出处均在对应文件注释中标明来源与用途（如位图降采样实现出自 Android 官方文档示例）。
+
+> 这是个人自用项目，不提供商用支持。使用它导致的漏接消息、误响、耗电等问题请自行评估。

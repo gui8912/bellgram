@@ -14,6 +14,19 @@
 
 apply plugin: 'com.android.application'
 
+// modified: 【签名固定】固定签名材料的路径。
+//
+// 背景（这是实测出来的，不是推测）：GitHub Actions 的 runner 每次都是全新机器，
+// AGP 会在 ~/.android/ 下自动生成 debug.keystore —— 每次都是**不同的 key**。
+// 我比对过连续两次 CI 构建出的 APK，CERT.RSA 的 SHA-256 分别是 dce46633… 和
+// bbb44ad0…，即签名不同。后果是：新版 APK 装不进已装旧版的手机，系统提示
+// 「应用未安装」，必须卸载重装，而卸载会丢掉号码、关键词、命中记录全部配置。
+//
+// 因此仓库里固定一份自用签名 keystore/bellgram.jks，本地构建与 CI 共用同一个 key，
+// 从此覆盖升级不再需要卸载。首次时该文件不存在（CI 会先生成并上传），
+// 此时自动退回 AGP 默认 debug 签名，保证构建不会因此失败。
+def fixedKeystore = rootProject.file('keystore/bellgram.jks')
+
 android {
     // modified: AGP 8 要求显式 namespace
     namespace 'com.saiga.find.messagefinder'
@@ -21,26 +34,51 @@ android {
     // modified: 29 -> 34 -> 36（Android 16；需安装 SDK Platform 36）
     compileSdk 36
 
+    // modified: 固定签名。这是**个人自用**签名，不是发布密钥，未用于任何应用商店；
+    // 口令明文放置是有意的——private 仓库 + 保证本地与 CI 签名完全一致可复现。
+    // 如果将来要上架，请另建正式密钥并改用 CI Secrets / 本地 properties 读取。
+    signingConfigs {
+        if (fixedKeystore.exists()) {
+            personal {
+                storeFile fixedKeystore
+                storePassword 'bellgram'
+                keyAlias 'bellgram'
+                keyPassword 'bellgram'
+                // minSdk 23：保留 v1 以兼容老 ROM 的安装校验，同时签 v2
+                v1SigningEnabled true
+                v2SigningEnabled true
+            }
+        }
+    }
+
     defaultConfig {
         applicationId "com.saiga.find.messagefinder"
         // 保持向后兼容：Android 6.0 起
         minSdk 23
         // modified: 29 -> 36（本轮核心合规项，理由与配套架构改造见文件头与报告 §5.1）
         targetSdk 36
-        // modified: 版本号随本次二次开发递增（v4.0.1 = 独立复审修复轮）
-        versionCode 19
-        versionName "4.0.1"
+        // modified: v4.1.0 = 更名「铃达」+ 固定签名（versionCode 19 -> 20）
+        versionCode 20
+        versionName "4.1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         debug {
             // 调试包不做混淆，便于查看堆栈
+            // modified: 有固定 keystore 就用它，保证 CI 产物能覆盖升级；否则用默认 debug 签名
+            if (fixedKeystore.exists()) {
+                signingConfig signingConfigs.personal
+            }
         }
         release {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // modified: 同上，release 也走固定签名
+            if (fixedKeystore.exists()) {
+                signingConfig signingConfigs.personal
+            }
         }
     }
 

@@ -20,7 +20,7 @@
 
     <string name="app_version">App Version</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.0.1</string>
+    <string name="current_app_version">4.1.0</string>
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">http://unchartedtech.work/privacy-policy</string>
     <string name="user_guidance">Click to view App Privacy Policy</string>

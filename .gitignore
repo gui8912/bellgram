@@ -21,6 +21,14 @@ build/
 *.keystore
 *.p12
 
+# modified: 例外——个人自用的固定签名材料必须入库。
+# 原因：CI runner 每次都是全新机器，AGP 自动生成的 debug.keystore 每次不同 key，
+# 连续两次构建的 APK 签名会变化，导致新包无法覆盖安装旧包（须卸载重装、配置全丢）。
+# 固定一份 keystore 让本地与 CI 共用同一 key 才能覆盖升级。
+# 这是自用签名而非发布密钥，口令明文放在 app/build.gradle 是有意的（private 仓库）。
+# 将来若要上架应用商店，请另建正式密钥、改为从 CI Secrets 读取，并删掉这条例外。
+!keystore/bellgram.jks
+
 # 本地工具链
 .idea/
 *.hprof
