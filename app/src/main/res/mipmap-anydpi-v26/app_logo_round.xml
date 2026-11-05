@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- modified: 背景由纯白改为靛蓝渐变位图（v4.1.1 更换应用图标） -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@color/app_logo_background"/>
+    <background android:drawable="@mipmap/app_logo_background"/>
     <foreground android:drawable="@mipmap/app_logo_foreground"/>
 </adaptive-icon>

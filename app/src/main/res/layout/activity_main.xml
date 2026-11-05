@@ -226,7 +226,7 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 
-            <!-- 品牌图标：体积很小（6KB），不会造成内存压力 -->
+            <!-- 品牌图标：体积很小（29KB），不会造成内存压力 -->
             <ImageView
                 android:id="@+id/brand_icon"
                 android:layout_width="64dp"
