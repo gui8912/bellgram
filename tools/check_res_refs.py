@@ -4,7 +4,7 @@
 2) Java 中 R.drawable / R.string / R.color / R.layout / R.array / R.style 是否存在
 3) layout 中引用的 @drawable/@color/@string 是否存在
 """
-import re, glob, os
+import re, glob, os, sys
 from collections import defaultdict
 
 ROOT = r"D:\Workbuddy\2026-11-05-22-34-04\PriorityAlerts-v3\app\src\main"
@@ -59,7 +59,7 @@ print("资源统计:", {k: len(v) for k, v in defined.items()})
 missing = []
 for f in glob.glob(os.path.join(JAVA, "**", "*.java"), recursive=True):
     src = read(f)
-    for m in re.finditer(r"\bR\.(id|drawable|mipmap|string|color|layout|array|style|dimen|bool|integer|anim|menu|xml|raw)\.([A-Za-z0-9_]+)", src):
+    for m in re.finditer(r"(?<![\w.])R\.(id|drawable|mipmap|string|color|layout|array|style|dimen|bool|integer|anim|menu|xml|raw)\.([A-Za-z0-9_]+)", src):
         kind, name = m.group(1), m.group(2)
         if kind == "style":
             continue        # 主题名可能由 parent 链推导，单独看
@@ -93,3 +93,8 @@ for f in glob.glob(os.path.join(RES, "**", "*.xml"), recursive=True):
 print("\n== XML 引用的资源缺失 ==", len(xml_missing))
 for x in sorted(set(xml_missing)):
     print(f"  {x[0]}:{x[1]}  @{x[2]}/{x[3]}")
+
+if missing or xml_missing:
+    print(f"\nFAIL: Java 缺 {len(set(missing))} 处、XML 缺 {len(set(xml_missing))} 处资源引用")
+    sys.exit(1)
+print("\nOK: 资源引用完整")

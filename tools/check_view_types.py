@@ -46,13 +46,42 @@ def compatible(declared, actual):
         return True
     return actual in allowed
 
+
+def strip_comments(src):
+    """把注释替换成等长空白，保持行号不变，避免把注释里的示例代码当成真代码。"""
+    out = []
+    i, n = 0, len(src)
+    in_line = in_block = False
+    while i < n:
+        c = src[i]
+        nxt = src[i+1] if i+1 < n else ""
+        if in_line:
+            if c == "\n":
+                in_line = False; out.append(c)
+            else:
+                out.append(" ")
+        elif in_block:
+            if c == "*" and nxt == "/":
+                in_block = False; out.append("  "); i += 1
+            else:
+                out.append("\n" if c == "\n" else " ")
+        else:
+            if c == "/" and nxt == "/":
+                in_line = True; out.append("  "); i += 1
+            elif c == "/" and nxt == "*":
+                in_block = True; out.append("  "); i += 1
+            else:
+                out.append(c)
+        i += 1
+    return "".join(out)
+
 problems = []
 for f in glob.glob(os.path.join(JAVA, "**", "*.java"), recursive=True):
-    src = open(f, encoding="utf-8").read()
+    src = strip_comments(open(f, encoding="utf-8").read())
     # 形如 XxxClass var = findViewById(R.id.yyy)  /  (XxxClass) findViewById(...)
     for m in re.finditer(
-            r"([A-Za-z_][A-Za-z0-9_.<>]*(?:<[^>]*>)?)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"
-            r"(?:\([A-Za-z_][A-Za-z0-9_.]*\)\s*)?(?:[A-Za-z_][A-Za-z0-9_.]*\.)?findViewById\(\s*R\.id\.([A-Za-z0-9_]+)\s*\)",
+            r"([A-Za-z_][A-Za-z0-9_.<>]*(?:<[^>]*>)?)[ \t]+([A-Za-z_][A-Za-z0-9_]*)[ \t]*=[ \t]*"
+            r"(?:\([A-Za-z_][A-Za-z0-9_.]*\)[ \t]*)?(?:[A-Za-z_][A-Za-z0-9_.]*\.)?findViewById\([ \t]*R\.id\.([A-Za-z0-9_]+)[ \t]*\)",
             src):
         declared = m.group(1).split("<")[0].split(".")[-1]
         vid = m.group(3)
@@ -82,8 +111,16 @@ for p in problems:
 
 # ---- 3. 检查 (XxxLayout)object 这类 PagerAdapter 强转 ----
 print("\n== Adapter 视图强转 ==")
+casts = []
 for f in glob.glob(os.path.join(JAVA, "**", "*.java"), recursive=True):
-    src = open(f, encoding="utf-8").read()
+    src = strip_comments(open(f, encoding="utf-8").read())
     for m in re.finditer(r"\((RelativeLayout|LinearLayout|FrameLayout|ConstraintLayout|CoordinatorLayout)\)\s*(object|view)\b", src):
         line = src[:m.start()].count("\n") + 1
-        print(f"  {os.path.basename(f)}:{line}  -> ({m.group(1)}) {m.group(2)}")
+        casts.append(f"{os.path.basename(f)}:{line} -> ({m.group(1)}) {m.group(2)}")
+        print(f"  {casts[-1]}")
+
+# 有类型不匹配则让 CI 失败；强转只作提示（可能是合法用法）
+if problems:
+    print(f"\nFAIL: {len(problems)} 处 findViewById 类型不匹配")
+    sys.exit(1)
+print("\nOK: 未发现类型不匹配")

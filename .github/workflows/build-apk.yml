@@ -86,6 +86,17 @@ jobs:
           yes | sdkmanager --licenses > /dev/null 2>&1 || true
           sdkmanager "platforms;android-36" "build-tools;35.0.0" || true
 
+      - name: Source / layout consistency checks
+        # modified: v4.1.2 新增。
+        # 为什么需要：v4.1.0 出现过「布局 XML 把根节点从 RelativeLayout 改成 LinearLayout，
+        # 而 Java 里仍强转 RelativeLayout」导致首次启动必崩（ClassCastException）。
+        # 这类跨文件不一致 javac 与 aapt2 都不报错，只有真机运行才炸。
+        # 三个脚本分别校验：控件类型、资源引用、页面 id 归属；有问题直接让构建失败。
+        run: |
+          python3 tools/check_view_types.py
+          python3 tools/check_res_refs.py
+          python3 tools/check_page_ids.py
+
       - name: Run JVM unit tests
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
 
