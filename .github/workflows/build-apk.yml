@@ -1,0 +1,70 @@
+# modified: 新增 GitHub Actions 工作流
+#
+# 目的：本机没有 JDK / Android SDK，无法产出 APK。让 GitHub 的免费 runner（自带
+# Ubuntu + JDK + Android SDK）替我们编译，产物作为 Artifact 下载，手机直接安装。
+# 这样"克隆即可运行"不再依赖本地装 Android Studio。
+#
+# 说明：
+#   1) 用 gradle/actions/setup-gradle 指定 8.13，直接走 services.gradle.org 下载，
+#      绕开 gradle-wrapper.properties 里的国内镜像（GitHub 机器访问腾讯镜像不稳）。
+#   2) 先跑 JVM 单元测试（RoundPolicy / KeywordMatcher / PhoneNumbers / QuietHours），
+#      这些纯 Java 规则不依赖真机，是本次改造唯一能自动化验证的部分。
+#   3) 产出的是 debug 包，用 debug keystore 自动签名，可直接安装；不适合上架。
+name: Build debug APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Install Android SDK platform 36
+        # AGP 也能自动下载，这里显式装一次以缩短失败排查路径；失败不阻断。
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" || true
+
+      - name: Run JVM unit tests
+        run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Assemble debug APK
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: bellgram-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload test report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: app/build/reports/tests/**
+          if-no-files-found: ignore
+          retention-days: 7
