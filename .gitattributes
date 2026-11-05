@@ -1,0 +1,40 @@
+# 统一行尾符（modified: 新增）
+#
+# 背景：上游是 2018 年的 Windows 工程，源文件多为 CRLF；本次二次开发新增/
+# 重写的文件是 LF，导致仓库内行尾混合（31 个 CRLF + 55 个 LF）。
+# 后果是任何一次编辑都可能把整个文件标记为"重写"，diff 全是噪音，
+# 也会让「这一行到底改了什么」变得不可读。
+# 因此显式声明：仓库内统一 LF，检出时不做自动转换。
+* text=auto eol=lf
+
+# 二进制：绝不能被当作文本处理，否则 git 会尝试合并/转换而损坏文件
+*.jar binary
+*.apk binary
+*.aab binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ttf binary
+*.otf binary
+*.ogg binary
+*.mp3 binary
+*.jks binary
+*.keystore binary
+*.p12 binary
+
+# 源码与配置：强制 LF
+*.java text eol=lf
+*.xml  text eol=lf
+*.gradle text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.properties text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+gradlew text eol=lf
+
+# Windows 批处理必须是 CRLF —— cmd.exe 解析 LF 换行的 .bat 会出错
+*.bat text eol=crlf
+*.cmd text eol=crlf
