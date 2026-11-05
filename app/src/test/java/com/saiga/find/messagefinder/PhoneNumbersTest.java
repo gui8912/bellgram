@@ -53,15 +53,25 @@ public class PhoneNumbersTest {
         assertTrue(PhoneNumbers.isValidInput("+8613800138000"));
         assertTrue(PhoneNumbers.isValidInput("10086"));
         assertTrue(PhoneNumbers.isValidInput("138 0013 8000"));
+        // modified: 通讯录/名片里常见的全角括号与点号分隔，应视为格式字符而非非法字符
+        assertTrue(PhoneNumbers.isValidInput("（138）0013-8000"));
+        assertTrue(PhoneNumbers.isValidInput("138.0013.8000"));
     }
 
     @Test
     public void isValidInput_rejectsBadInput() {
+        assertFalse(PhoneNumbers.isValidInput(null));
         assertFalse(PhoneNumbers.isValidInput(""));
         assertFalse(PhoneNumbers.isValidInput("123"));           // 太短
         assertFalse(PhoneNumbers.isValidInput("1234567890123456")); // 太长（16 位）
         assertFalse(PhoneNumbers.isValidInput("1380013800a"));
         assertFalse(PhoneNumbers.isValidInput("+"));
+        // modified: 以下 4 条对应【独立复审】发现的缺陷——stripSeparators 会静默丢弃
+        // 非数字字符，旧实现因此把这些输入判为"合法"并原样存进配置，实际匹配的是别的号码。
+        assertFalse(PhoneNumbers.isValidInput("138 0013 8000 转 1234")); // 汉字分机号
+        assertFalse(PhoneNumbers.isValidInput("13800138000,1234"));      // 通讯录导出的逗号分机
+        assertFalse(PhoneNumbers.isValidInput("1+3800138000"));          // '+' 不在首位
+        assertFalse(PhoneNumbers.isValidInput("++8613800138000"));       // 多个 '+'
     }
 
     @Test

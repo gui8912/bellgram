@@ -53,12 +53,66 @@ public final class PhoneNumbers {
     }
 
     /**
-     * 校验用户输入的号码是否合法（允许空串，空串代表“不限号码”，由调用方单独判断）。
+     * 号码里允许出现的“格式字符”：数字、全角数字、加号、连字符、点、半角/全角括号、
+     * 空格（含不换行空格与全角空格），以及 * / #（服务号、USSD 补充符）。
+     *
+     * <p>不在白名单内的一律视为非法输入（字母、汉字、逗号、分机号等）。
+     */
+    private static boolean hasOnlyFormatChars(String raw) { // modified: 新增
+        for (int i = 0; i < raw.length(); i++) {
+            char ch = raw.charAt(i);
+            boolean allowed = (ch >= '0' && ch <= '9')
+                    || (ch >= '\uFF10' && ch <= '\uFF19')          // 全角数字
+                    || ch == '+' || ch == '-' || ch == '.'
+                    || ch == '(' || ch == ')' || ch == '\uFF08' || ch == '\uFF09'
+                    || ch == '*' || ch == '#'
+                    || ch == ' ' || ch == '\u00A0' || ch == '\u3000';
+            if (!allowed) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 校验用户输入的号码是否合法（空串代表“不限号码”，由调用方单独判断）。
      *
      * @param raw 用户输入
      * @return 合法返回 true；空串返回 false（调用方需先判断是否允许为空）
      */
     public static boolean isValidInput(String raw) { // modified: 由“最多 10 位”改为国际通用的 5-15 位
+        // modified: 【独立复审修正】先做字符白名单校验，不能只看 stripSeparators 之后的长度。
+        // 原因：stripSeparators 会静默丢弃所有非数字字符，于是
+        //   "1380013800a"           -> 被当成 "1380013800" 判为合法；
+        //   "138 0013 8000 转 1234" -> 被当成 15 位号码判为合法，canonical 再取末 11 位
+        //                              就变成了另一个号码。
+        // 而 MainActivity.saveConfig() 保存的是**用户原始输入串**，所以这属于
+        // “校验通过、但配置被静默改写”：用户以为配了 A 号码，实际匹配的是 B 号码，
+        // 短信永远不响且查不出原因。校验器的职责是拒绝，不是替用户改。
+        if (raw == null || !hasOnlyFormatChars(raw)) {
+            return false;
+        }
+        // modified: '+' 只允许至多一个，且必须在所有数字之前。
+        // 否则 stripSeparators 会因为“不在首位就不保留”而把它丢掉，同样属于静默改写。
+        boolean seenDigit = false;
+        int plusCount = 0;
+        for (int i = 0; i < raw.length(); i++) {
+            char ch = raw.charAt(i);
+            if (ch == '+') {
+                plusCount++;
+                if (seenDigit) {
+                    return false;
+                }
+            } else if (ch >= '0' && ch <= '9') {
+                seenDigit = true;
+            } else if (ch >= '\uFF10' && ch <= '\uFF19') {
+                seenDigit = true;
+            }
+        }
+        if (plusCount > 1) {
+            return false;
+        }
+
         String stripped = stripSeparators(raw);
         if (stripped.isEmpty()) {
             return false;
@@ -67,12 +121,7 @@ public final class PhoneNumbers {
         if (digits.isEmpty()) {
             return false;
         }
-        for (int i = 0; i < digits.length(); i++) {
-            char ch = digits.charAt(i);
-            if (ch < '0' || ch > '9') {
-                return false;
-            }
-        }
+        // modified: 走到这里 digits 必然是纯数字（字符白名单已保证），只需校验长度
         return digits.length() >= MIN_INPUT_LENGTH && digits.length() <= MAX_INPUT_LENGTH;
     }
 
