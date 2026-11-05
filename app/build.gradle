@@ -57,9 +57,9 @@ android {
         minSdk 23
         // modified: 29 -> 36（本轮核心合规项，理由与配套架构改造见文件头与报告 §5.1）
         targetSdk 36
-        // modified: v4.1.1 = 全新应用图标（铃铛 + 声波，自适应图标）（versionCode 20 -> 21）
-        versionCode 21
-        versionName "4.1.1"
+        // modified: v4.1.2 = 修复首次启动引导页闪退（versionCode 21 -> 22）
+        versionCode 22
+        versionName "4.1.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

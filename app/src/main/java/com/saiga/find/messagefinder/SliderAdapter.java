@@ -10,7 +10,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -71,8 +70,11 @@ public class SliderAdapter extends PagerAdapter {
 
     @Override
     public boolean isViewFromObject(@NonNull View view, @NonNull Object object) {
-        // to be checked
-        return view == (RelativeLayout)object;
+        // modified: 【崩溃修复 v4.1.2】原实现为 `view == (RelativeLayout)object`。
+        // page_layout.xml 的根节点在界面重做时已由 RelativeLayout 改为 LinearLayout，
+        // 这行强转会在 ViewPager 首次布局时抛 ClassCastException，导致引导页（首次启动
+        // 的第一个界面）直接闪退。PagerAdapter 的判定只需要引用相等，不依赖具体类型。
+        return view == object;
     }
 
     @NonNull
@@ -142,7 +144,8 @@ public class SliderAdapter extends PagerAdapter {
     @Override
     public void destroyItem(@NonNull ViewGroup container, int position, @NonNull Object object) {
         // marks the end of the onboarding screen
-        container.removeView((RelativeLayout)object);
+        // modified: 【崩溃修复 v4.1.2】同上，强转 RelativeLayout 会 CCE，改为按 View 移除
+        container.removeView((View) object);
     }
 
     /**
