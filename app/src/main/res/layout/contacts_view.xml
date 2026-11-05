@@ -1,29 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- modified: v4.1.2 修复下拉项高度为 0 的问题。
+     原实现父 LinearLayout 是 wrap_content，子 TextView 却用 0dp + layout_weight=1；
+     父高度未定，子项算出来就是 0，通讯录联想列表点开是空白一片。 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:divider="?attr/dividerHorizontal"
-    android:showDividers="end">
+    android:showDividers="end"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
     <!-- adapter view used to display contact name and number in auto suggestion feature -->
     <TextView
         android:id="@+id/contact_title"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:gravity="center"
-        tools:text="@tools:sample/date/mmddyy"
+        android:layout_height="wrap_content"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:gravity="center_vertical"
+        tools:text="张三"
         android:fontFamily="sans-serif-black"
         android:textAppearance="@style/TextAppearance.AppCompat.Small"/>
 
     <TextView
         android:id="@+id/contact_number"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:gravity="center"
-        tools:text="@tools:sample/date/mmddyy"
+        android:layout_height="wrap_content"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:gravity="center_vertical"
+        tools:text="13800138000"
         android:fontFamily="sans-serif-condensed"
         android:textAppearance="@style/TextAppearance.AppCompat.Small"/>
 </LinearLayout>
