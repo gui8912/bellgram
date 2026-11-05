@@ -40,9 +40,12 @@
 
 从 [**Releases**](https://github.com/gui8912/bellgram/releases/latest) 下载 `bellgram-*.apk`，传到手机点击安装。
 
-- 使用固定自用签名，后续版本可直接覆盖升级，配置不丢。
+- 使用固定自用签名，后续版本可直接覆盖升级，号码、关键词、提醒策略、命中记录全部保留。
 - 是 debug 构建，仅供个人自用，不上架任何应用商店，也不适合二次分发。
 - 也可以从 [Actions](https://github.com/gui8912/bellgram/actions/workflows/build-apk.yml) 取最新构建产物（需解压 zip）。
+
+> **装过 v4.0.x 的请先卸载旧版。** 那一版用的是 CI 临时生成的签名，私钥随构建机器一起销毁，
+> 无法延续到新版。这是最后一次需要卸载 —— 从 v4.1.0 起签名固定，以后都能直接覆盖升级。
 
 ## 装完必做：五项系统设置
 
