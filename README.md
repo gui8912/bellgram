@@ -1,12 +1,23 @@
-> **铃信 / Bellgram（本目录为二次开发版本 v4.0.1 · Android 16 合规版 · 已过独立复审）**
+[![Build debug APK](https://github.com/gui8912/bellgram/actions/workflows/build-apk.yml/badge.svg)](https://github.com/gui8912/bellgram/actions/workflows/build-apk.yml)
+
+> **铃信 / Bellgram（本目录为二次开发版本 v4.0.1 · Android 16 合规版 · 已过独立复审 · 已编译出包）**
 > - 应用显示名已由「Priority Alerts / 优先提醒」改为 **「铃信」/「Bellgram」**；
 >   工程目录、`applicationId`（`com.saiga.find.messagefinder`）与包名**保持不变**，覆盖安装不受影响。
 > - 上游项目：saiga006/message-finder（GPL-3.0），原始版本 2.9.8
-> - **想要直接跑起来 → 看 [BUILD.md](BUILD.md)**（环境要求、命令行、报错对照、8 步真机自检）
+> - **想直接装到手机上 → 装 `bellgram-v4.0.1-debug.apk`，或从仓库 Actions 页面下载**
+>   （见下方「安装包」一节）；想自己编译 → 看 [BUILD.md](BUILD.md)（环境要求、命令行、报错对照、8 步真机自检）
 > - **最新复审结论 → [REVIEW_REPORT_V5.md](REVIEW_REPORT_V5.md)**（v4.0.1，独立复审 7 个维度，
->   推翻了上一版 6 条结论，修掉 12 处缺陷，其中 3 处会直接破坏核心功能）
+>   推翻了上一版 6 条结论，修掉 **13** 处缺陷，其中 4 处会直接破坏核心功能）
 > - **完整改造记录 → [AUDIT_REPORT_V4.md](AUDIT_REPORT_V4.md)**
 >   （**[AUDIT_REPORT.md](AUDIT_REPORT.md)** 是 v3.0.0 历史存档，其中 4 项结论已被推翻，阅读时以新版为准）
+>
+> ### 安装包
+> - 仓库 **Actions → Build debug APK → 最近一次成功运行 → Artifacts → `bellgram-debug-apk`**
+>   （private 仓库需登录；Artifact 保留 30 天）
+> - 已导出一份放在工程目录上一级：`bellgram-v4.0.1-debug.apk`
+>   9.63 MB / `versionCode 19` / `versionName 4.0.1` / `targetSdk 36`，实测包名、权限、
+>   组件导出状态均符合预期（核验过程见复审报告 §12.4）
+> - 每次 push 到 `main` 自动跑单测 + 重新出包，见 `.github/workflows/build-apk.yml`
 >
 > ### v4.0.1 独立复审修掉的关键问题
 > - **双重响铃（老用户必现）**：静音渠道沿用了 v3 的 `priority_alert_v2`，而通知渠道的声音
@@ -17,8 +28,12 @@
 >   与告警页互相触发。已改为只有真正要叫人的那一轮才带。
 > - **铃声停不下来**：单轮时长选「一直响到手动停止」时，若后台停止服务被系统拒绝，
 >   铃声会无限响。已补 `stopService` 兜底。
+> - **号码校验静默改写配置**（由 CI 单元测试发现，逐行复审也没看出来）：
+>   `isValidInput()` 只看 `stripSeparators()` 之后的长度，而后者会丢弃一切非数字字符。
+>   于是 `138 0013 8000 转 1234` 被判为合法，存进配置的却是原始串，`canonical()` 再取
+>   末 11 位就成了**另一个号码**——短信永远不响，界面上却完全正常。已加字符白名单。
 > - **旋转屏幕铃声重启** / **设置页重复装载 Fragment** / **MIUI 上全屏页被锁屏盖住** /
->   **配置损坏导致提醒静默失效** —— 均已修复，逐条见复审报告 §1。
+>   **配置损坏导致提醒静默失效** —— 均已修复，逐条见复审报告 §1 / §12.2。
 > - **`gradle-wrapper.jar` 仍是 Gradle 4.6**（上一版只改了 properties 没换 jar），
 >   已替换为官方 8.13 引导器，这是「克隆后能直接构建」的前提。
 >
@@ -32,8 +47,10 @@
 > - 交互：锁屏全屏告警、通知上「停止」「稍后提醒」、最近 20 条命中记录、权限体检
 >
 > ### 构建与真机注意
-> - 本机**没有 JDK / Android SDK，未执行过 Gradle 构建**（如实说明，不粉饰）；
->   请按 `BUILD.md` 在笔记本上执行 `gradlew.bat :app:assembleDebug --stacktrace`。
+> - **已通过 GitHub Actions 实际编译**：JDK 17 + Gradle 8.13 + AGP 8.11.1 + platform 36，
+>   单测与 `assembleDebug` 均为 success；产出 APK 已核验包名 / 版本 / targetSdk / 组件导出状态。
+>   但**未在真机验证**——装到红米 K60 Pro 后请按 `REVIEW_REPORT_V5.md` §11.4 的 4 条逐项确认。
+>   本地编译见 `BUILD.md`。
 > - 红米 K60 Pro / HyperOS 必读：自启动=开、省电策略=无限制、允许锁屏与悬浮通知、
 >   允许通知、允许「全屏通知」（Android 14+ 默认不给）、允许接收短信。
 >   缺任一项表现为「短信到了却不响」或「只响一次就没了」。

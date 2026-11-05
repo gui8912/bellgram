@@ -15,6 +15,10 @@ name: Build debug APK
 on:
   push:
     branches: [ main ]
+    # modified: 纯文档改动不触发构建，省 runner 分钟数
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
   workflow_dispatch:
 
 permissions:

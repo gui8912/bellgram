@@ -436,17 +436,22 @@ public static Notification build(..., CharSequence status, boolean withFullScree
 
 ## 11. 遗留风险与未完成项（如实列示）
 
-### 11.1 未编译（最高风险，未消除）
+### 11.1 ~~未编译（最高风险，未消除）~~ → **已消除，见 §12**
+
+> **本节结论已被 §12 推翻。** 撰写 §11 时生成环境没有 JDK / Android SDK，
+> 因此当时判断"无法证明能编译通过"。随后接入 GitHub Actions，
+> 已在 GitHub 的 Ubuntu runner（JDK 17 + Gradle 8.13 + AGP 8.11.1 + platform 36）
+> 上**实际编译出 APK 并跑通全部单元测试**。保留原文以示结论演进：
 
 生成此仓库的环境**没有 JDK、没有 Android SDK**，因此：
 
-- 未执行 `gradlew :app:assembleDebug`，**无法证明能编译通过**；
-- 未运行任何单元测试（虽然它们只是纯 Java）；
-- 未在真机（红米 K60 Pro / HyperOS）上验证。
+- ~~未执行 `gradlew :app:assembleDebug`，**无法证明能编译通过**~~ → 已执行并通过；
+- ~~未运行任何单元测试（虽然它们只是纯 Java）~~ → 已运行，且**抓到 1 个静态校验发现不了的缺陷**；
+- 未在真机（红米 K60 Pro / HyperOS）上验证 → **仍需你完成**（§11.4）。
 
 静态校验能覆盖的是"资源是否齐全、id 是否对得上、占位符是否匹配、结构是否配平"，
-**覆盖不到**：Java 语法细节、泛型推断、AGP DSL 的属性名拼写、依赖解析、R8 裁剪。
-请在笔记本上按 `BUILD.md` §3 执行并在失败时回传 `--stacktrace` 片段。
+**覆盖不到**：Java 语法细节、泛型推断、依赖解析、以及**运行时逻辑**。
+后者的缺口正是 §12.2 那个缺陷的来源。
 
 ### 11.2 无法用代码根治的架构性限制
 
@@ -467,3 +472,138 @@ public static Notification build(..., CharSequence status, boolean withFullScree
 2. 锁屏 → 点通知「停止」→ 屏幕锁上后是否**不再**弹全屏页（对应 §1.2）。
 3. 单轮时长选「一直响」→ 播放中强制停网络、锁屏、再解锁 → 点停止 → 铃声是否立刻停（对应 §1.3）。
 4. 全屏告警页旋转屏幕 → 铃声是否连续（对应 §1.5）。
+
+---
+
+## 12. CI 实证：从「无法编译」到「产出可安装 APK」
+
+### 12.1 为什么必须上 CI
+
+§11.1 原本把「未编译」列为最高风险。这个风险靠读代码永远消不掉——它属于
+"只能通过执行来证伪"的类别。本机无 JDK / Android SDK，且网络无法下载 1 GB 工具链
+（直连 GitHub 21 秒超时、经代理 502），因此改为把编译交给 GitHub Actions 的免费
+Ubuntu runner。
+
+工作流 `.github/workflows/build-apk.yml` 的设计取舍：
+
+| 选择 | 原因 |
+|---|---|
+| `gradle/actions/setup-gradle` 指定 8.13 | `gradle-wrapper.properties` 里是腾讯镜像，GitHub 机器访问不稳定；显式指定版本直接走 services.gradle.org |
+| 先跑 `testDebugUnitTest` 再 `assembleDebug` | 单测失败时**不应该**产出包，否则等于把未验证的二进制递给用户 |
+| `sdkmanager` 那步加了 `|| true` | AGP 能自行下载缺失的 platform；这一步只为缩短排查路径，不应成为失败点 |
+| 产物用 `upload-artifact` | APK 不进 git（二进制不该进版本库），但每次构建都可回溯下载 |
+
+### 12.2 首次运行就抓到第 13 项缺陷（静态校验完全看不见的那一类）
+
+第一次构建的结果是：**编译全部通过，单测 1 条失败**。
+
+```
+PhoneNumbersTest > isValidInput_rejectsBadInput FAILED
+```
+
+这不仅消掉了"能不能编译"的疑问，还暴露了一个我在 §1 逐行复审时**同样漏掉**的问题。
+复盘它为什么难发现：
+
+- `isValidInput()` 的写法看起来是自洽的：先 `stripSeparators()`，再判长度 5–15；
+- 缺陷藏在 `stripSeparators()` 的**语义**里——它的既定职责是"丢弃一切非数字字符"，
+  这对解析**真实短信发送方号码**是正确的容错（ROM 可能给出 `+86 138-0013-8000`）；
+- 但它同时被当成了**校验器的前端**。于是
+
+  | 用户输入 | `stripSeparators` 之后 | 旧判定 | 实际后果 |
+  |---|---|---|---|
+  | `1380013800a` | `1380013800` | **合法** | 字母被静默吞掉 |
+  | `138 0013 8000 转 1234` | `138001380001234`（15 位） | **合法** | `canonical()` 再取末 11 位 → `00138001234`，**变成另一个号码** |
+  | `13800138000,1234` | `138001380001234` | **合法** | 同上 |
+
+- 关键一环：`MainActivity.saveConfig(contactRaw, keywords)` 保存的是**用户原始输入串**，
+  不是规范化结果。所以这不是"宽松校验"，而是
+  **校验通过 → 配置被静默改写 → 用户以为配了 A 号码，实际匹配 B 号码 → 短信永远不响，
+  且界面上一切正常，无从排查**。对"漏一条关键短信就会出事"这个产品目标来说，
+  这是最坏的一类失败：静默、且伪装成正常。
+
+修复（`PhoneNumbers.java`）：`isValidInput()` 增加字符白名单，字母 / 汉字 / 逗号直接拒绝；
+并限制 `+` 至多一个且必须出现在所有数字之前（否则同样会被 `stripSeparators` 丢弃，
+属于同一种静默改写）。`stripSeparators()` 与 `canonical()` **保持原容错行为不变**——
+它们服务于解析而不是校验，宽松是对的。**校验器的职责是拒绝，不是替用户改。**
+
+测试同步补 6 条断言，把该缺陷钉住：汉字分机号、通讯录逗号分机、`+` 不在首位、
+多个 `+`、全角括号（应接受）、点号分隔（应接受）。
+
+> **这一条要单独说明**：我在 §1 声称"逐行复审完成、发现 12 处缺陷"，但这一处是 CI
+> 抓出来的第 13 处。这说明逐行阅读有明确的能力边界——纯函数的**组合语义**
+> （容错函数被复用作校验器）靠读单个函数看不出来，靠断言才看得出来。
+> 这也是为什么 §7.3 坚持要真跑测试，而不是"静态校验全绿就算通过"。
+
+### 12.3 修复后的结果
+
+第二次运行（commit `1cb2550`）：
+
+```
+Run JVM unit tests   completed  success
+Assemble debug APK   completed  success
+Upload debug APK     completed  success
+```
+
+### 12.4 对产出 APK 的实测核验（不是"CI 说成功"就算数）
+
+拿到 artifact 后，我直接解析了 APK 内的**二进制 `AndroidManifest.xml`**
+（手写 AXML 解析：字符串池 + START_ELEMENT 属性表），确认打出来的包就是它该有的样子：
+
+| 项 | 实测值 | 期望 |
+|---|---|---|
+| `package` | `com.saiga.find.messagefinder` | 与原工程一致，覆盖安装不丢配置 ✓ |
+| `versionCode` | `19` | v4.0.1 ✓ |
+| `versionName` | `4.0.1` | ✓ |
+| `compileSdkVersion` | `36` | ✓ |
+| `targetSdkVersion` | `36` | 本轮唯一重大破坏性变更 ✓ |
+| `minSdkVersion` | `23` | 与原工程一致 ✓ |
+| `allowBackup` | `false` | ✓ |
+| `usesCleartextTraffic` | `false` | ✓ |
+| `enableOnBackInvokedCallback` | `true` | 预测式返回 ✓ |
+| `dataExtractionRules` / `fullBackupContent` | 均已挂上 | ✓ |
+
+组件导出状态（安全面）：
+
+```
+activity  SettingsActivity       exported=false
+activity  Onboarding             exported=false   ← v3 的裸 MAIN 入口已移除
+activity  MainActivity           exported=true     ← 需要 LAUNCHER
+activity  AlertActivity          exported=false
+receiver  SMSReceiver            exported=true     ← 系统广播必须
+receiver  RepeatAlarmReceiver    exported=false
+receiver  AlertActionReceiver    exported=false
+service   SMSForegroundService   exported=false
+```
+
+权限（只列本应用自己声明的）：
+
+```
+FOREGROUND_SERVICE, FOREGROUND_SERVICE_MEDIA_PLAYBACK,
+RECEIVE_SMS, VIBRATE, READ_CONTACTS, WAKE_LOCK,
+POST_NOTIFICATIONS, USE_FULL_SCREEN_INTENT
+```
+
+包体：9,633,420 字节，987 个条目，3 个 dex，v1 签名（`META-INF/CERT.RSA`）
++ AGP 自动追加的 v2/v3，`Created-By: Android Gradle 8.11.1`，
+`zipfile.testzip()` 无损坏。
+
+> 顺带解释了为什么是 3 个 dex：`minSdk 23` 下 debug 构建不做 R8 裁剪，
+> `material` / `appcompat` / `preference` 全量进包。这是 debug 包的正常形态，
+> 不代表最终发布体积。
+
+### 12.5 APK 在哪
+
+- 仓库页面：**Actions → Build debug APK → 最近一次成功运行 → Artifacts → `bellgram-debug-apk`**
+  （需要登录 GitHub，因为仓库是 private；Artifact 保留 30 天）
+- 本地已导出一份：`..\bellgram-v4.0.1-debug.apk`（工程目录上一级）
+
+安装到红米 K60 Pro 后，**必须先做完 §11.4 的 4 条真机确认**，
+并按 README「HyperOS 保活四步」逐项放行。CI 能证明的是"能编译、单测通过、
+包的身份正确"，**证明不了"在你的 MIUI/HyperOS 上能可靠响铃"**——后者只有真机能验证。
+
+### 12.6 以后改代码怎么出包
+
+改完直接 push 到 `main`，Actions 自动跑测试并产出新 APK；也可以手动
+`Actions → Build debug APK → Run workflow` 触发。
+本地有 Android Studio 的话，`gradlew.bat :app:assembleDebug` 效果相同，
+产物在 `app/build/outputs/apk/debug/app-debug.apk`。
