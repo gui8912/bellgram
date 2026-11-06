@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- modified: 背景由纯白改为靛蓝渐变位图（v4.1.1 更换应用图标） -->
+<!-- modified: v4.3.0 换用用户提供的新图标（蓝色渐变圆角方底 + 白色对话气泡 + 蓝色铃铛）；background / foreground 为自适应图标位图层 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@mipmap/app_logo_background"/>
     <foreground android:drawable="@mipmap/app_logo_foreground"/>

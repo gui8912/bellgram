@@ -22,7 +22,6 @@
 *.ttf binary
 *.otf binary
 *.ogg binary
-*.mp3 binary
 *.jks binary
 *.keystore binary
 *.p12 binary

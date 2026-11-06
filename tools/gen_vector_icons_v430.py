@@ -2,6 +2,13 @@
 # -*- coding: utf-8 -*-
 """Generate the small Material-style vector icons used by the v4.3.0 UI.
 
+Third-party provenance (audit dimension 6):
+  The 24dp path data in ICONS comes from Google Material Design Icons
+  (https://github.com/google/material-design-icons), Apache License 2.0,
+  with minor geometric trimming for this project. These paths are the ONLY
+  reused third-party material in the app: no third-party Java/Kotlin source
+  was copied, and every generated drawable repeats this provenance comment.
+
 Colour is applied through @color/icon_tint on the path (not android:tint on the
 <vector> root) so it still works on API 23-25 and switches with values-night.
 """
@@ -51,7 +58,7 @@ ICONS = {
 }
 
 TEMPLATE = '''<?xml version="1.0" encoding="utf-8"?>
-<!-- modified: v4.3.0 新增界面图标（Material 风格 24dp 路径，颜色跟随明亮/暗色主题） -->
+<!-- modified: v4.3.0 新增界面图标；路径数据取自 Google Material Design Icons (Apache-2.0, github.com/google/material-design-icons) 24dp 图标集；颜色跟随明亮/暗色主题 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
