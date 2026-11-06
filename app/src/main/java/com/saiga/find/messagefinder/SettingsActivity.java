@@ -97,6 +97,16 @@ public class SettingsActivity extends AppCompatActivity {
          */
         private AlertDialog activeDialog;
 
+        /**
+         * modified: v4.5.1 试响播放器。
+         *
+         * <p>v4.5.0 是让 {@code SMSForegroundService} 播的，实测部分机型「点了确认什么反应都没有」：
+         * 试响只有 8 秒、用户就盯着设置页，却要走 mediaPlayback 前台服务，
+         * 于是卡在 Android 12+ 的启动限制 / 14+ 的类型校验 / 通知权限上，失败还被 catch 吞掉。
+         * 现在改成页面内直接播，失败原因能立刻回显给用户。
+         */
+        private AlertPreviewPlayer previewPlayer;
+
         /** modified: v4.5.0 统一登记并显示对话框，替代散落的 .show()。 */
         private void showTracked(AlertDialog dialog) {
             activeDialog = dialog;
@@ -120,8 +130,61 @@ public class SettingsActivity extends AppCompatActivity {
             }
         }
 
+        /** modified: v4.5.1 停止试响并释放播放器，页面离开/销毁时调用。 */
+        private void stopPreview() {
+            AlertPreviewPlayer preview = previewPlayer;
+            previewPlayer = null;
+            if (preview != null) {
+                try {
+                    preview.stop();
+                } catch (Exception e) {
+                    Log.w(TAG, "stop preview failed", e);
+                }
+            }
+        }
+
+        /**
+         * modified: v4.5.1 执行一次试响，并把真实结果告诉用户。
+         *
+         * <p>这里刻意不用「请求已发出就算成功」的写法：播放器会回一个明确的结果码，
+         * 失败时能说清是「都没开」「闹钟音量为 0」还是「铃声资源加载失败」，
+         * 而不是让用户面对一个毫无反馈的按钮。
+         */
+        private void startPreview(Context context) {
+            if (previewPlayer == null) {
+                previewPlayer = new AlertPreviewPlayer();
+            }
+            int result = previewPlayer.play(context);
+            int message;
+            switch (result) {
+                case AlertPreviewPlayer.RESULT_OK:
+                    message = R.string.preview_alert_started;
+                    break;
+                case AlertPreviewPlayer.RESULT_ALREADY_PLAYING:
+                    message = R.string.preview_alert_playing;
+                    break;
+                case AlertPreviewPlayer.RESULT_NOTHING_ENABLED:
+                    message = R.string.preview_alert_silent;
+                    break;
+                case AlertPreviewPlayer.RESULT_ALARM_VOLUME_ZERO:
+                    message = R.string.preview_alert_volume_zero;
+                    break;
+                default:
+                    message = R.string.preview_alert_failed;
+                    break;
+            }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show();
+        }
+
+        @Override
+        public void onStop() { // modified: v4.5.1 页面不可见就停，避免切走后还在响
+            stopPreview();
+            super.onStop();
+        }
+
         @Override
         public void onDestroyView() { // modified: v4.5.0 防止窗口泄漏
+            stopPreview(); // modified: v4.5.1
             dismissActiveDialog();
             super.onDestroyView();
         }
@@ -190,6 +253,8 @@ public class SettingsActivity extends AppCompatActivity {
 
             // modified: v4.5.0 【新增】试响一次。改完音量 / 时长 / 渐强后立刻能听到效果，
             // 不用等一条真实短信来验证——这是「设置到底生效没有」最直接的答案。
+            // modified: v4.5.1 改为页面内直接播放（AlertPreviewPlayer），
+            // 不再经 SMSForegroundService —— 见该类注释里对「各机型无声」根因的说明。
             Preference previewPref = findPreference(getString(R.string.preview_alert_key));
             if (previewPref != null) {
                 previewPref.setOnPreferenceClickListener(preference -> {
@@ -197,10 +262,9 @@ public class SettingsActivity extends AppCompatActivity {
                     if (context == null) {
                         return true;
                     }
-                    AppConfig config = AppConfig.get(context);
-                    if (!config.isRingEnabled() && !config.isVibrateEnabled()) {
-                        Toast.makeText(context, R.string.preview_alert_silent,
-                                Toast.LENGTH_SHORT).show();
+                    if (previewPlayer != null && previewPlayer.isPlaying()) {
+                        Toast.makeText(context, R.string.preview_alert_playing,
+                                Toast.LENGTH_LONG).show();
                         return true;
                     }
                     showTracked(new MaterialAlertDialogBuilder(context)
@@ -208,18 +272,8 @@ public class SettingsActivity extends AppCompatActivity {
                             .setMessage(R.string.preview_alert_confirm)
                             .setIcon(R.drawable.ic_bell_24)
                             .setNegativeButton(android.R.string.cancel, null)
-                            .setPositiveButton(R.string.confirm_positive, (dialog, which) -> {
-                                if (SMSForegroundService.isRunning()) {
-                                    Toast.makeText(context, R.string.preview_alert_playing,
-                                            Toast.LENGTH_SHORT).show();
-                                    return;
-                                }
-                                boolean started = AlertDispatcher.preview(context);
-                                Toast.makeText(context,
-                                        started ? R.string.preview_alert_started
-                                                : R.string.preview_alert_failed,
-                                        Toast.LENGTH_SHORT).show();
-                            })
+                            .setPositiveButton(R.string.preview_alert_action, (dialog, which) ->
+                                    startPreview(context))
                             .create());
                     return true;
                 });

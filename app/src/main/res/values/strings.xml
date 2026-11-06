@@ -21,7 +21,7 @@
 
     <string name="app_version">App Version</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.5.0</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.1</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -232,11 +232,13 @@
     <string name="preview_alert_key">preview_alert</string>
     <string name="preview_alert_title">Play a test alert</string>
     <string name="preview_alert_summary">Rings for 8 seconds with your current volume, crescendo and vibration settings</string>
-    <string name="preview_alert_confirm">This plays an alert for about 8 seconds using your current settings.\n\nIt is a test only: no alert session is created, no repeat is scheduled, and any pending alert is left untouched.</string>
-    <string name="preview_alert_playing">An alert is already ringing. Stop it before running a test</string>
+    <string name="preview_alert_confirm">This plays for about 8 seconds using your current volume level, crescendo and vibration settings.\n\nIt is a test only: no alert session is created, no repeat is scheduled, and any pending alert is left untouched.\n\nThe test uses the current system alarm volume and does not change your volume settings.</string>
+    <string name="preview_alert_action">Start test</string>
+    <string name="preview_alert_playing">A test is already playing, please let it finish</string>
     <string name="preview_alert_started">Test alert playing, stops automatically in about 8 seconds</string>
     <string name="preview_alert_silent">Both ring and vibration are off, so a test would be silent</string>
-    <string name="preview_alert_failed">Could not start the test alert. Check notification permission</string>
+    <string name="preview_alert_volume_zero">System alarm volume is 0, so the test cannot be heard. Raise the alarm volume in system settings first</string>
+    <string name="preview_alert_failed">Test failed: the ringtone resource could not be loaded, check the log</string>
     <string name="preview_sender">Test alert</string>
     <string name="preview_keyword">test</string>
     <string name="preview_body">This is a test: if you can hear it and feel the vibration, the alert chain works.</string>

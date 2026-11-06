@@ -334,40 +334,14 @@ public final class AlertDispatcher {
         } // modified
     } // modified
 
-    /**
-     * 试响一次：按当前设置播放固定 8 秒，**不建立会话、不排闹钟、不改会话状态**。
-     *
-     * <p>modified: v4.5.0 新增。参考 SmsForwarder 给每个转发通道都配「测试」按钮、
-     * reReminder 提供可靠性自检的做法：用户改完音量/时长/渐强后，最需要的是立刻听到效果。
-     *
-     * <p>合规性：只能由用户可见的界面（设置页）调用。从用户可见状态启动前台服务
-     * 属于 Android 12+ 的官方豁免情形，不会触发 ForegroundServiceStartNotAllowedException。
-     *
-     * @return true 表示已发出启动请求
-     */
-    public static synchronized boolean preview(Context context) { // modified: v4.5.0 新增
-        if (context == null) { // modified
-            return false; // modified
-        } // modified
-        try { // modified
-            Context app = app(context); // modified
-            if (SMSForegroundService.isRunning()) { // modified
-                Log.i(TAG, "alert service busy, skip preview"); // modified
-                return false; // modified
-            } // modified
-            Intent intent = new Intent(app, SMSForegroundService.class); // modified
-            intent.setAction(SMSForegroundService.ACTION_PREVIEW_ALERT); // modified
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) { // modified
-                app.startForegroundService(intent); // modified
-            } else { // modified
-                app.startService(intent); // modified
-            } // modified
-            return true; // modified
-        } catch (Exception e) { // modified
-            Log.e(TAG, "start preview alert failed", e); // modified
-            return false; // modified
-        } // modified
-    } // modified
+    // modified: v4.5.1 【删除】preview(Context)。原先由本类启动前台服务播 8 秒试响，
+    // 实测在部分机型上「点了确认没任何反应」：
+    // ① Android 12+ 的 startForegroundService 后台启动限制；
+    // ② Android 14+ startForeground() 对 foregroundServiceType 的校验；
+    // ③ POST_NOTIFICATIONS 被拒时前台通知不可用。
+    // 三者任一命中，服务在 catch 后 stopSelf()，声音与震动都不会发生，
+    // 而调用方早已提示「正在试响」，用户只能看到静默失败。
+    // 8 秒试听不需要保活能力，现改为设置页原地播放：见 AlertPreviewPlayer。
 
     private static Context app(Context context) {
         return context.getApplicationContext() != null

@@ -66,8 +66,12 @@ android {
         // modified: v4.5.0 = 全盘审计（设置页框架弹窗叠加、稍后提醒通知被撤、静音空转、
         //           换号后联系人姓名残留、时间/时区变更未重挂闹钟），新增「试响一次」自检，
         //           versionCode 26 -> 27；固定签名不变，可直接覆盖升级
-        versionCode 27 // modified: v4.5.0 发布
-        versionName "4.5.0" // modified: v4.5.0 发布
+        // modified: v4.5.1 = 修 v4.5.0 试响在部分机型「点了确认没反应」：试响原走
+        //           mediaPlayback 前台服务，被 Android 12+ 启动限制 / 14+ 类型校验 /
+        //           通知权限拦截后静默失败；改为设置页原地播放（AlertPreviewPlayer），
+        //           失败原因直接回显。versionCode 27 -> 28；固定签名不变
+        versionCode 28 // modified: v4.5.1 发布
+        versionName "4.5.1" // modified: v4.5.1 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

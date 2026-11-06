@@ -22,7 +22,7 @@
 
     <string name="app_version">应用版本</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.5.0</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.1</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -233,11 +233,13 @@
     <string name="preview_alert_key">preview_alert</string>
     <string name="preview_alert_title">试响一次</string>
     <string name="preview_alert_summary">按当前音量、渐强与震动设置响 8 秒，用来确认真的会响</string>
-    <string name="preview_alert_confirm">将按当前设置播放约 8 秒提醒。\n\n这是一次试响：不会建立提醒会话，不会安排重复提醒，也不会影响正在等待的提醒。</string>
-    <string name="preview_alert_playing">正在提醒中，请先结束当前提醒再试响</string>
+    <string name="preview_alert_confirm">将按当前音量档位、渐强与震动设置播放约 8 秒。\n\n这是一次试响：不会建立提醒会话，不会安排重复提醒，也不会影响正在等待的提醒。\n\n试响按当前的系统闹钟音量播放，不会改动系统音量设置。</string>
+    <string name="preview_alert_action">开始试响</string>
+    <string name="preview_alert_playing">正在试响，请等它结束</string>
     <string name="preview_alert_started">正在试响，约 8 秒后自动停止</string>
     <string name="preview_alert_silent">响铃与震动都已关闭，试响不会有任何效果</string>
-    <string name="preview_alert_failed">试响启动失败，请检查通知权限</string>
+    <string name="preview_alert_volume_zero">系统闹钟音量为 0，试响听不到声音。请先在系统设置里调高闹钟音量</string>
+    <string name="preview_alert_failed">试响失败：铃声资源未能加载，请查看日志</string>
     <string name="preview_sender">试响测试</string>
     <string name="preview_keyword">试响</string>
     <string name="preview_body">这是一次试响：听到声音、感觉到震动，就说明提醒链路是通的。</string>

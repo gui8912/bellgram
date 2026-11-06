@@ -44,10 +44,12 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     public static final String ACTION_SNOOZE_ALERT = "com.snooze.foreground";
     /** modified: v4.5.0 停止播放但保留通知（「稍后提醒」收尾用，与 STOP 的 REMOVE 区分）。 */
     public static final String ACTION_SILENCE_ALERT = "com.silence.foreground";
-    /** modified: v4.5.0 试响：按当前设置播一轮，不建立会话、不排闹钟。 */
-    public static final String ACTION_PREVIEW_ALERT = "com.preview.foreground";
-    /** modified: 试响固定播放 8 秒：足够判断音量/震动是否正常，又不会让人找不到停止入口。 */
-    private static final int PREVIEW_DURATION_SEC = 8;
+    // modified: v4.5.1 【删除】ACTION_PREVIEW_ALERT 与 PREVIEW_DURATION_SEC。
+    // 试响已迁到 AlertPreviewPlayer（设置页原地播放），不再经本服务：
+    // 8 秒的试听借用 mediaPlayback 前台服务，会被 Android 12+ 的启动限制、
+    // 14+ 的 foregroundServiceType 校验、POST_NOTIFICATIONS 权限逐层拦截，
+    // 失败还被 startForeground 的 catch 吞掉，用户只能看到「没反应」。
+    // 新实现见 AlertPreviewPlayer.java，调用方为 SettingsActivity#startPreview。
 
     private static final String TAG = "SmsService";
     private static final String RINGTONE_RESOURCE_PATH = "raw/priority_ringtone";
@@ -78,8 +80,8 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     private boolean ringEnabled = true;
     private boolean vibrateEnabled = true;
     private boolean quietHoursActive = false;
-    /** modified: v4.5.0 本次运行是否为「试响」：结束时只退服务，不碰会话与闹钟。 */
-    private boolean previewMode = false;
+    // modified: v4.5.1 【删除】previewMode 字段。试响不再经过本服务，
+    // 原用途（结束时只退服务、不碰会话与闹钟）已由 AlertPreviewPlayer 天然满足 —— 它根本不碰会话。
     private int ringDurationSec = 60;
     private int repeatIntervalMin = 5;
     private int currentRound = 1;
@@ -128,8 +130,6 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
             handleLocalStop(true); // modified: v4.5.0 参数化：用户明确停止 -> 连通知一起撤
         } else if (ACTION_SILENCE_ALERT.equals(action)) { // modified: v4.5.0 只静音、保留通知
             handleLocalStop(false); // modified
-        } else if (ACTION_PREVIEW_ALERT.equals(action)) { // modified: v4.5.0 试响
-            handlePreview(); // modified
         } else if (ACTION_SNOOZE_ALERT.equals(action)) {
             handleLocalStop(true); // modified: v4.5.0
             // modified: 稍后提醒时长不再跟随重复间隔，也不再写死 5 分钟
@@ -197,54 +197,12 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         startRound();
     }
 
-    /**
-     * modified: v4.5.0 新增。试响：按当前音量 / 渐强 / 震动设置播一轮，固定 8 秒后自动停。
-     *
-     * <p>与 {@link #handleStartAlert} 的差别是**完全不碰会话**：
-     * 不读 AlertSession、不写轮次、不排闹钟，因此不会把用户等待中的提醒覆盖掉。
-     * 时长也不跟随「单次响铃时长」——那条设置允许 0（一直响），试响若照做，
-     * 用户会得到一个没有停止按钮的长铃。
-     */
-    private void handlePreview() { // modified
-        if (alertActive) { // modified
-            Log.d(TAG, "alert round already playing, ignore preview"); // modified
-            return; // modified
-        } // modified
-        currentSender = getString(R.string.preview_sender); // modified
-        currentKeyword = getString(R.string.preview_keyword); // modified
-        currentPerson = ""; // modified
-        currentBody = getString(R.string.preview_body); // modified
-        currentRound = 1; // modified
-        previewMode = true; // modified
-
-        readReminderPolicy(); // modified: 与真实提醒用同一套音量/渐强/震动设置
-        // modified: 试响是用户主动点的，不该被夜间静音吞掉 —— 否则半夜想验证设置时会以为坏了
-        ringEnabled = AppConfig.get(this).isRingEnabled(); // modified
-        ringDurationSec = PREVIEW_DURATION_SEC; // modified: 固定 8 秒，避免 0 = 无限响
-        cancelRingTimeout(); // modified
-        stopRingAndVibration(); // modified
-
-        // modified: 9 参重载，withActions=false —— 试响不该带「停止 / 稍后提醒」按钮：
-        // 那两个按钮走的是 AlertDispatcher，会把一条正在等待的真实会话一起结束掉。
-        // 试响固定 8 秒自动收尾，用户不需要按钮。
-        Notification notification = NotificationHelper.build(this, // modified
-                NotificationHelper.CHANNEL_ID_ALERT, currentSender, currentKeyword, // modified
-                currentPerson, currentBody, getString(R.string.preview_alert_title), // modified
-                false, false); // modified
-        try { // modified
-            startForeground(NotificationHelper.NOTIFICATION_ID, notification); // modified
-            foregroundStarted = true; // modified
-        } catch (Exception e) { // modified
-            Log.e(TAG, "startForeground failed, cancel preview", e); // modified
-            previewMode = false; // modified
-            stopSelf(); // modified
-            return; // modified
-        } // modified
-
-        alertActive = true; // modified
-        acquireWakeLock(computeWakeLockTimeoutMs()); // modified
-        startRound(); // modified
-    } // modified
+    // modified: v4.5.1 【删除】handlePreview()。试响改为设置页原地播放，
+    // 见 AlertPreviewPlayer.java。删除理由：该实现把 8 秒试听挂到 mediaPlayback
+    // 前台服务上，Android 12+ 的后台启动限制、14+ 的 foregroundServiceType 校验、
+    // POST_NOTIFICATIONS 权限都会拦截，且失败被 startForeground 的 catch 吞掉，
+    // 用户侧表现为「点了确认什么都发生不了」。
+    // 会话/轮次/闹钟本就不该被试响触碰，新实现天然满足这一点。
 
     /** 读取本轮生效的提醒策略（用户在设置页改完，下一轮立刻生效）。 */
     private void readReminderPolicy() { // modified: 重写，不再计算常驻总轮次
@@ -324,14 +282,8 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         releasePlayer();
         releaseWakeLock();
 
-        // modified: v4.5.0 试响到此为止：不读会话、不排闹钟、不改任何状态，直接退服务。
-        // 通知用 REMOVE，否则通知栏会留下一条写着「试响一次」的死通知。
-        if (previewMode) { // modified
-            previewMode = false; // modified
-            Log.d(TAG, "preview finished"); // modified
-            stopSelfSafely(true); // modified
-            return; // modified
-        } // modified
+        // modified: v4.5.1 【删除】此处的 previewMode 提前收尾分支。
+        // 试响已不经过本服务，所有进入 endRound 的都是真实提醒轮次。
 
         AlertSession session = AlertSession.get(this);
         int rounds = Math.max(1, currentRound);
@@ -363,7 +315,6 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         Log.d(TAG, "local stop, removeNotification=" + removeNotification);
         alertActive = false;
         ringWindowOpen = false;
-        previewMode = false; // modified: 试响被中断时也要复位，避免影响下一次真实提醒
         cancelRingTimeout();
         stopRingAndVibration();
         restoreAlarmVolume();
