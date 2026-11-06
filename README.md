@@ -190,6 +190,7 @@ gradlew.bat :app:assembleDebug            # Windows
 
 | 版本 | 内容 |
 |---|---|
+| **v4.3.1** | **源码层独立复审**：修复 2 项边界缺陷——① 主题切换触发配置变更重建后「已启动轮次」归零，此时点同一轮通知会重播已结束的提醒；② 音量守护在恢复失败时也清标记，导致用户原始闹钟音量永久丢失。另更正 `AlarmVolumeGuard` 过时的调用入口注释。`versionCode 25`，可直接覆盖 v4.3.0 |
 | **v4.3.0** | 换用用户指定的新图标（全套 legacy / round / adaptive 资源）；新增**明亮 / 暗色双主题**；把「以最大音量播放」改为可选档位（跟随系统 / 40 / 60 / **80 默认** / 100%）；新增渐强音量、稍后提醒时长、音量键行为；响铃时长 / 重复间隔 / 最多次数**保留原默认值**并支持「自定义…」手动输入；借鉴 SmsForwarder 增加提醒总开关与排除关键词。独立复审另修 4 项缺陷（含源码内 NUL 字节与总开关语义）。详见 [`REVIEW_REPORT_V8.md`](REVIEW_REPORT_V8.md) |
 | **v4.2.0** | **全量独立复审**：修复 34 项确定性缺陷（通知渠道创建失败静默丢通知、设备重启后提醒永久失效、进程被杀后系统闹钟音量被永久改大、会话并发错轮、降级通知自触发循环、去重哈希碰撞、关键词顿号/零宽字符、旧配置静默丢失、引导页按钮被导航栏遮挡等）；新增开机恢复、音量守护与 8 条边界单测。详见 [`AUDIT_REPORT_V7.md`](AUDIT_REPORT_V7.md) |
 | **v4.1.2** | **修复首次安装启动即闪退**：`SliderAdapter` 仍把页面视图强转为 `RelativeLayout`，而界面重做后 `page_layout.xml` 的根节点已改为 `LinearLayout`，导致首次启动的引导页在 ViewPager 首次布局时抛 `ClassCastException` |
@@ -200,7 +201,7 @@ gradlew.bat :app:assembleDebug            # Windows
 | v3.0.0 | 19 项 P1 缺陷修复、界面重做、响铃/震动/重复提醒策略、夜间静音、规则演练、稍后提醒、锁屏全屏告警 |
 
 详细记录：
-- [REVIEW_REPORT_V8.md](REVIEW_REPORT_V8.md) —— v4.3.0 独立复审：双主题 / 音量档位 / 过滤链的契约核对与缺陷修复
+- [REVIEW_REPORT_V8.md](REVIEW_REPORT_V8.md) —— v4.3.x 独立复审：契约核对、缺陷修复与 §11 源码层复审
 - [AUDIT_REPORT_V7.md](AUDIT_REPORT_V7.md) —— v4.2.0 全量独立复审（8 节，34 项确定性缺陷）
 - [REVIEW_REPORT_V6.md](REVIEW_REPORT_V6.md) —— 首次启动闪退根因定位与一致性核查
 - [REVIEW_REPORT_V5.md](REVIEW_REPORT_V5.md) —— 独立复审（7 个核查维度，含 CI 实证与 APK 核验）

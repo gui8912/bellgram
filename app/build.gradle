@@ -58,8 +58,10 @@ android {
         // modified: 29 -> 36（本轮核心合规项，理由与配套架构改造见文件头与报告 §5.1）
         targetSdk 36
         // modified: v4.3.0 = 新图标、双主题、音量档位与提醒参数可配，versionCode 23 -> 24
-        versionCode 24 // modified: v4.3.0 发布
-        versionName "4.3.0" // modified: v4.3.0 发布
+        // modified: v4.3.1 = 源码层独立复审（主题重建轮次去重、音量守护恢复失败保留标记），
+        //           versionCode 24 -> 25
+        versionCode 25 // modified: v4.3.1 发布
+        versionName "4.3.1" // modified: v4.3.1 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

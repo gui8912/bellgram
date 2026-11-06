@@ -54,7 +54,8 @@ final class AlarmVolumeGuard { // modified
 
     /**
      * 若上一次播放没走完正常收尾（进程被杀），立刻把系统闹钟音量还原。
-     * 在 MainActivity.onCreate 与 SMSForegroundService.onCreate 都调用，双保险。
+     * 在 BellgramApp.onCreate、SMSForegroundService.onCreate 与 BootReceiver
+     * 三处调用，覆盖「冷启动 / 服务重启 / 开机与覆盖安装」全部入口。
      */
     static void restoreIfStale(Context context) { // modified: 新增
         SharedPreferences p; // modified
@@ -68,21 +69,27 @@ final class AlarmVolumeGuard { // modified
         if (saved == NO_VALUE) { // modified
             return;
         }
+        boolean restored = false; // modified: 是否真正写回成功
         try { // modified
             AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE); // modified
             if (am != null) { // modified
                 am.setStreamVolume(AudioManager.STREAM_ALARM, saved, 0); // modified
+                restored = true; // modified
                 Log.i(TAG, "restored alarm volume left by killed process: " + saved); // modified
             }
         } catch (Exception e) { // modified
             Log.w(TAG, "restore stale alarm volume failed", e); // modified
-        } finally { // modified
-            // modified: 无论恢复成功与否都清标记，避免每次启动都写一次系统设置
+        }
+        // modified: 【v4.3.1 独立复审】只有真正恢复成功才清标记。原实现在 finally 里
+        // 无条件清除：一旦 AudioManager 不可用或 setStreamVolume 抛异常，用户的原始
+        // 音量就永久丢失，之后会把「被钉高的当前值」当作新的原始音量恢复回去。
+        // 保留标记的代价只是下次启动再试一次，远小于丢失用户设置。
+        if (restored) { // modified
             try { // modified
                 p.edit().remove(KEY_SAVED).commit(); // modified
             } catch (Exception ignored) { // modified
-                // 已尽力恢复，忽略清除失败
-            }
-        }
-    }
+                // 已尽力恢复，忽略清除失败 // modified
+            } // modified
+        } // modified
+    } // modified
 }

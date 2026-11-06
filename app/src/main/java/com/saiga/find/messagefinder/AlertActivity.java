@@ -48,6 +48,8 @@ public class AlertActivity extends AppCompatActivity {
     private String body = "";
     /** modified: 【v4.2】记录本实例已经为哪一輪启动过服务，用于 onNewIntent 去重。 */
     private int lastStartedRound = -1; // modified
+    /** modified: 【v4.3.1】配置变更重建时把「已启动轮次」一起带过去。 */
+    private static final String STATE_LAST_STARTED_ROUND = "last_started_round"; // modified
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -65,8 +67,21 @@ public class AlertActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             lastStartedRound = AlertSession.get(this).getRound(); // modified: 登记已启动轮次
             startAlertService(); // modified: 用户可见状态下启动前台服务，属于系统豁免
+        } else {
+            // modified: 【v4.3.1 独立复审】manifest 的 configChanges 已移除 uiMode，
+            // 主题切换会重建本页，lastStartedRound 随之归零。重建后若再收到「同一轮」
+            // 的通知点击，onNewIntent 会把同轮误判成新轮次，重播一个已经结束的提醒。
+            // 从 savedInstanceState 恢复，保证重建前后对「这一轮是否启动过」认知一致。
+            lastStartedRound = savedInstanceState.getInt( // modified
+                    STATE_LAST_STARTED_ROUND, -1); // modified
         }
     }
+
+    @Override // modified
+    protected void onSaveInstanceState(Bundle outState) { // modified
+        super.onSaveInstanceState(outState); // modified
+        outState.putInt(STATE_LAST_STARTED_ROUND, lastStartedRound); // modified
+    } // modified
 
     @Override
     protected void onNewIntent(Intent intent) {

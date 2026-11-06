@@ -422,3 +422,150 @@ v4.2 已经修掉的 P0。剩余不确定性全部收敛到 CI 编译结果与 �
 - 早期对话中出现过明文 GitHub token，建议到 token 设置页撤销并重建最小权限 token。
 - 本机无 adb / JDK / Android SDK：锁屏全屏、定时重复、重启恢复、强杀后音量还原
   仍依赖 §8.3 的 15 条真机验收。这是**环境限制**，不是代码结论。
+
+---
+
+## 11. 第二轮独立复审（源码层，v4.3.1）
+
+> §10 复核的是**交付产物**，源码层只有结论速览。本轮按要求**逐文件重读** v4.3.0
+> 全部新增/改动链路，不采信前两轮判断，重点查静态脚本与二进制解析都覆盖不到的
+> **跨文件契约**与**运行态时序**。
+
+### 11.1 重读范围
+
+| 层次 | 文件 |
+|---|---|
+| 配置契约 | `AppConfig`（`readInt` 类型兜底 / 新键 / 钳制）、`app_preferences.xml`、中英 `arrays.xml`、`VolumePolicy` |
+| 设置交互 | `SettingsActivity`（主题切换、`custom` 哨兵、自定义数值、摘要 Provider、总开关联动） |
+| 提醒链路 | `SMSReceiver`（总开关→号码→关键词→排除词→去重）、`AlertDispatcher`（stop / snooze / finish）、`AlertScheduler`、`BootReceiver` |
+| 播放与音量 | `SMSForegroundService`（档位 / 渐强 / 恢复 / 收尾）、`AlarmVolumeGuard` |
+| 界面与主题 | `AlertActivity`（重建 / 轮次 / 音量键）、`ThemeHelper`、`BellgramApp`、`styles.xml`、`values-night/colors.xml` |
+| 资源层 | drawable 硬编码色值、`splash_drawable`、夜间变体、遗留图标引用 |
+
+交叉验证：Java 括号/字符串状态机扫描、XML 良构与注释合法性、三项静态检查、
+中英资源键与数组配对、`findViewById` 与布局 id 比对。
+
+### 11.2 七个维度的复核结论
+
+| 维度 | 结论 |
+|---|---|
+| 1 逻辑正确性 | 主链路与状态机无 P0；新发现 2 项边界缺陷（§11.3），均为「特定时序下行为错误」而非崩溃 |
+| 2 改动合理性 | 新功能全部围绕「别那么吵、但别漏」；未引入网络转发、正则规则、SIM 选择、远程控制 |
+| 3 代码规范 | 命名/注释统一；本轮更正 `AlarmVolumeGuard` 过时注释；`// modified` 覆盖新增逻辑行 |
+| 4 兼容性与可移植性 | 构建链固定、签名入库、无本机绝对路径、图标原图入库；`readInt` 同时兼容 String/Int 存储 |
+| 5 变更风险 | 新增 2 条真机验收（§11.6）；N 类边界全部列明理由（§11.5） |
+| 6 代码溯源 | 唯一复用素材为 9 个 Material 图标路径（已标注 Apache-2.0）；其余均为自写，注释中注明参考但不复制 |
+| 7 测试方案 | 静态检查 + 单测 + 产物二进制复核 + 真机清单；本轮改动的两条时序缺陷已写成可执行的验收步骤 |
+
+### 11.3 本轮新发现并修复的 2 项缺陷
+
+#### D1（P1 边界）主题重建后「已启动轮次」归零，同轮通知会重播已结束的提醒
+
+**触发路径**：告警页显示中 → 系统深色模式随日出日落切换 / 用户改主题 → `manifest` 的
+`configChanges` 已移除 `uiMode`，Activity 重建 → `lastStartedRound` 随实例归零 →
+服务此时已 `endRound` 停止 → 用户点同一轮通知 → `onNewIntent` 判定
+`incomingRound(1) != lastStartedRound(-1)` 成立 → 重新启动服务，**重播已经结束的第 1 轮**。
+
+**改前**
+```java
+if (savedInstanceState == null) {
+    lastStartedRound = AlertSession.get(this).getRound();
+    startAlertService();
+}
+```
+
+**改后**
+```java
+if (savedInstanceState == null) {
+    lastStartedRound = AlertSession.get(this).getRound();
+    startAlertService();
+} else {
+    lastStartedRound = savedInstanceState.getInt(STATE_LAST_STARTED_ROUND, -1);
+}
+
+@Override
+protected void onSaveInstanceState(Bundle outState) {
+    super.onSaveInstanceState(outState);
+    outState.putInt(STATE_LAST_STARTED_ROUND, lastStartedRound);
+}
+```
+
+**理由**：`savedInstanceState == null` 只解决了「重建时不要主动启动服务」，没有解决
+「重建后如何仍知道这轮启动过」。补上状态恢复后，重建前后对同一轮的认知一致。
+
+**风险**：极低。仅新增一个 Bundle 键；老版本恢复的 Bundle 无该键时回退 `-1`，退化为原行为。
+
+#### D2（P2）音量守护恢复失败也清标记，用户原始音量永久丢失
+
+**触发路径**：进程被杀 → 标记里存着原始音量 → 下次启动 `restoreIfStale()` →
+`AudioManager` 为空或 `setStreamVolume()` 抛异常 → 原实现在 `finally` 里**无条件清除标记** →
+原始音量信息永久消失，之后会把「被钉高的当前值」当成新的原始音量恢复回去。
+
+**改前**
+```java
+} finally {
+    // 无论恢复成功与否都清标记，避免每次启动都写一次系统设置
+    p.edit().remove(KEY_SAVED).commit();
+}
+```
+
+**改后**
+```java
+boolean restored = false;
+try {
+    AudioManager am = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+    if (am != null) {
+        am.setStreamVolume(AudioManager.STREAM_ALARM, saved, 0);
+        restored = true;
+    }
+} catch (Exception e) {
+    Log.w(TAG, "restore stale alarm volume failed", e);
+}
+if (restored) {
+    p.edit().remove(KEY_SAVED).commit();
+}
+```
+
+**理由**：保留标记的代价只是「下次启动再试一次」，远小于丢失用户的音量设置。
+
+**风险**：极低。若设备持续无法写系统音量（例如权限被策略管控），标记会一直保留，
+每次启动多一次失败的 `setStreamVolume` 调用，不产生写操作以外的副作用。
+
+**另**：`AlarmVolumeGuard` 类注释原写「在 MainActivity.onCreate 与 SMSForegroundService
+都调用」，与 v4.3 实际入口（`BellgramApp` / `SMSForegroundService` / `BootReceiver`）不符，已更正。
+
+### 11.4 排除的 6 项误报（复核过程中曾怀疑、验证后不成立）
+
+1. **「排除词不支持中文逗号」**：`normalize()` 把 U+FF0C（，）落在 `FF01-FF5E` 区间，
+   减 `0xFEE0` 得 `,`；顿号 U+3001、句号 U+3002 另有单独分支。中文逗号/顿号/句号都能分隔。
+2. **「自定义 15 分钟会被改回 5 分钟」**：`snooze` 用 `safeDelay = max(1, 15)`，
+   `scheduleNext` 只做 `max(1, delay)`，无上限钳制；`RoundPolicy.safeDelayMinutes`
+   仅在「重复间隔为 0」时提供兜底，不覆盖用户主动选的 15。
+3. **「ListPreference 存 String 会让 `readInt` 抛 ClassCastException」**：`readInt` 先
+   `getString` 再 `parseInt`，并对「键被写成整型/布尔」做了二次兜底。
+4. **「主题切换会重播当前轮」**：`onCreate` 已用 `savedInstanceState == null` 挡住主动启动；
+   本轮进一步补上「已启动轮次」的恢复，属加固而非新增阻断。
+5. **「`android:summary=\"%s\"` 会显示字面 %s」**：7 个 `ListPreference` 全部设置了
+   `SummaryProvider`（5 个官方 `SimpleSummaryProvider` + 3 个自定义），会覆盖 XML 文本。
+6. **「遗留图标在暗色下不可读」**：`ic_block_24dp` / `ic_contact_phone_black_24dp` 的
+   `android:tint` 会覆盖 `fillColor`；通知栏小图标还会被系统强制着色，暗色下仍可辨。
+
+### 11.5 已确认不修（保留设计边界）
+
+| 项 | 理由 |
+|---|---|
+| `android:summary="%s"` 冗余 | Provider 已覆盖，删除无功能收益，改 XML 反而增加回归面 |
+| `cancelRingTimeout()` 用 `removeCallbacksAndMessages(null)` | 该 Handler 目前只挂「响满时长」与「渐强」两类消息，清理偏宽但无实际影响 |
+| 会话已停止时全屏 Intent 仍可能拉起告警页 | 页面内容为空但按钮可用，点「停止」幂等关闭；自动 finish 会在「刚停止又闪一下」时更突兀 |
+| 双重 `recreate()`（`setDefaultNightMode` + 显式） | 两次都从持久化值恢复，值不丢；配置已生效时第二次通常为 no-op |
+| 音量档位不改变通知「第一声」 | 短信广播阶段改系统音量会失去还原入口（v4.2 修掉的 P0），已在 README / Release 标注 |
+| 强制暗色 + 系统亮色时冷启动闪一帧 | 系统预览窗口绘制早于 `Application.onCreate()`，属平台限制 |
+
+### 11.6 版本与验证
+
+- `versionCode 24 → 25`，`versionName 4.3.1`，`current_app_version` 同步为 `4.3.1`。
+- 改动面：2 个 Java 文件各 1 处逻辑、1 处注释，4 处版本/文档。
+- 三项静态检查、XML 良构、中英资源配对、Java 状态机扫描全部重跑；CI 重新编译 + 单测。
+- 新增 2 条真机验收（已写入 `BUILD.md` §7）：
+  1. 告警页显示中切换主题（或系统深色模式变化）触发重建后，再点同一条通知，**不应**重播已结束的轮次；
+  2. 用 100% 档位响铃中强杀进程，重启后系统闹钟音量应回到原值；若首次恢复失败，下次启动仍会再试。
