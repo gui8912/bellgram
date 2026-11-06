@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- modified: v4.3.0 主色改为与新图标一致的蓝色系，并补齐暗色主题需要的语义色。
+     原有色名全部保留（Java/布局的 R.color 引用不变），只调整色值与追加新键。 -->
 <resources>
     <!-- primary app colors used for different purposes -->
     <color name="somewhat_red">#D14444</color>
-    <color name="primaryColor">#303f9f</color>
-    <color name="primaryLightColor">#666ad1</color>
-    <color name="primaryDarkColor">#001970</color>
+    <color name="primaryColor">#0B57D0</color>
+    <color name="primaryLightColor">#8AB4FF</color>
+    <color name="primaryDarkColor">#0842A0</color>
     <color name="secondaryColor">#2979ff</color>
     <color name="secondaryLightColor">#75a7ff</color>
     <color name="secondaryDarkColor">#004ecb</color>
-    <color name="primaryTextColor">@color/app_logo_background</color>
-    <color name="secondaryTextColor">#000000</color>
+    <!-- modified: 原先引用 @color/app_logo_background，暗色下会跟着变成深色导致按钮文字不可读 -->
+    <color name="primaryTextColor">#FFFFFF</color>
+    <color name="secondaryTextColor">#4A5568</color>
     <color name="app_logo_background">#FFFFFF</color>
   <!-- onboarding colors used in FTI page -->
     <color name="lightBlueColor">#25B4FA</color>
@@ -29,10 +32,18 @@
     <color name="status_active_text">#1B7A3D</color>
     <color name="status_idle_bg">#ECEFF5</color>
     <color name="status_idle_text">#5B6270</color>
-    <!-- 二次开发新增（借鉴短信铃铛）：全屏告警页配色（深色，锁屏下更醒目） -->
-    <color name="alert_bg">#10131A</color>
-    <color name="alert_surface">#1B1F29</color>
-    <color name="alert_text_primary">#FFFFFF</color>
-    <color name="alert_text_secondary">#B6BCC8</color>
-    <color name="alert_accent">#FF5A5F</color>
+    <!-- modified: 全屏告警页改为跟随主题的两套高对比配色，仍保持「一眼看清」的信息层级 -->
+    <color name="alert_bg">#F5F8FD</color>
+    <color name="alert_surface">#FFFFFF</color>
+    <color name="alert_text_primary">#16202E</color>
+    <color name="alert_text_secondary">#5B6678</color>
+    <color name="alert_accent">#D93025</color>
+
+    <!-- modified: v4.3.0 新增语义色（values-night/colors.xml 有同名覆盖） -->
+    <color name="accent_color">#0B57D0</color>
+    <color name="button_primary_bg">#0B57D0</color>
+    <color name="on_accent_text">#FFFFFF</color>
+    <color name="icon_tint">#0B57D0</color>
+    <color name="divider_color">#E8EBF2</color>
+    <color name="onboarding_image_border">#33FFFFFF</color>
 </resources>

@@ -131,6 +131,16 @@ public final class KeywordMatcher {
     }
 
     /**
+     * modified: v4.3 借鉴 SmsForwarder 的过滤规则。排除词用「任意命中即排除」，
+     * 复用 findMatch 的归一化逻辑，避免正反两套匹配规则不一致。
+     *
+     * @return 命中的排除词；未命中返回 null
+     */
+    public static String findExclusion(Collection<String> exclusions, String body) { // modified
+        return findMatch(exclusions, body, false); // modified
+    } // modified
+
+    /**
      * 在短信正文中查找命中的关键词，支持“任意命中 / 全部命中”两种模式。
      *
      * <p>为什么要支持“全部命中”：参照短信铃铛的规则设置，只写“到账”会把所有广告都命中，

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- modified: v4.3.0 标题下方的一小段强调色短线，用于强化品牌识别 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/accent_color" />
+    <corners android:radius="2dp" />
+</shape>

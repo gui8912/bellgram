@@ -16,6 +16,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat; // modified
 
 public final class EdgeToEdgeHelper {
 
@@ -37,6 +38,14 @@ public final class EdgeToEdgeHelper {
         }
         try {
             WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
+            // modified: 双主题下同步状态栏/导航栏图标明暗，避免深底上深色图标看不见
+            boolean lightBars = activity.getResources().getBoolean(R.bool.light_system_bars); // modified
+            WindowInsetsControllerCompat controller = WindowCompat.getInsetsController( // modified
+                    activity.getWindow(), activity.getWindow().getDecorView()); // modified
+            if (controller != null) { // modified
+                controller.setAppearanceLightStatusBars(lightBars); // modified
+                controller.setAppearanceLightNavigationBars(lightBars); // modified
+            } // modified
             View root = activity.findViewById(rootViewId);
             if (root == null) {
                 return;

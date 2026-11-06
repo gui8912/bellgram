@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- modified: v4.3.0 暗色主题专用色板。只覆盖语义色，键名与 values/colors.xml 一一对应，
+     Java 侧仍用 R.color.xxx 引用，无需改代码即可整体换肤。 -->
+<resources>
+    <!-- 品牌色：暗色下 ActionBar 用深蓝，强调控件用亮蓝 -->
+    <color name="primaryColor">#1E2A44</color>
+    <color name="primaryLightColor">#8AB4FF</color>
+    <color name="primaryDarkColor">#0E1420</color>
+    <color name="secondaryColor">#8AB4FF</color>
+    <color name="secondaryLightColor">#B6D4FF</color>
+    <color name="secondaryDarkColor">#8AB4FF</color>
+    <color name="primaryTextColor">#FFFFFF</color>
+    <color name="secondaryTextColor">#A7B4C7</color>
+    <color name="app_logo_background">#182233</color>
+
+    <!-- 引导页点/文字：暗底上改用更亮、更柔和的同色系 -->
+    <color name="lightBlueColor">#7FD4FF</color>
+    <color name="lightOrangeColor">#FFC45C</color>
+    <color name="lightPinkColor">#FF9BB8</color>
+    <color name="lightGreenColor">#B9F6CA</color>
+
+    <!-- 中性表面色 -->
+    <color name="surface_bg">#0E1420</color>
+    <color name="card_bg">#182233</color>
+    <color name="card_stroke">#2A3A52</color>
+    <color name="text_primary">#EAF0FA</color>
+    <color name="text_secondary">#A7B4C7</color>
+    <color name="status_active_bg">#143A28</color>
+    <color name="status_active_text">#7EE2A8</color>
+    <color name="status_idle_bg">#223049</color>
+    <color name="status_idle_text">#B4C2D6</color>
+
+    <!-- 全屏告警页：暗色主题沿用高对比深底 -->
+    <color name="alert_bg">#0B1018</color>
+    <color name="alert_surface">#16202E</color>
+    <color name="alert_text_primary">#FFFFFF</color>
+    <color name="alert_text_secondary">#B6C2D2</color>
+    <color name="alert_accent">#FF6B6F</color>
+
+    <!-- 语义附加色 -->
+    <color name="accent_color">#8AB4FF</color>
+    <color name="button_primary_bg">#2F6FE4</color>
+    <color name="on_accent_text">#FFFFFF</color>
+    <color name="icon_tint">#8AB4FF</color>
+    <color name="divider_color">#2A3A52</color>
+    <color name="onboarding_image_border">#4DFFFFFF</color>
+</resources>

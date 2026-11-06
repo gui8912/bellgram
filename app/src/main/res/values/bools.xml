@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- modified: v4.3.0 明亮/暗色双主题，系统栏图标明暗统一由此开关决定 -->
+<resources>
+    <bool name="light_system_bars">true</bool>
+</resources>

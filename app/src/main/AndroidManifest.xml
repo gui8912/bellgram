@@ -42,7 +42,9 @@
          这是官方定义的“用户可见闹钟”API，不受 Android 12+ 精确闹钟权限限制，
          且能在低电耗(Doze)模式下准时触发；遵循最小权限原则。 -->
 
+    <!-- modified: v4.3.0 全局初始化入口：任何 Activity 创建前先应用主题，并尝试还原上次遗留的音量 -->
     <application
+        android:name=".BellgramApp"
         android:icon="@mipmap/app_logo"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/app_logo_round"
@@ -84,7 +86,7 @@
              configChanges：避免旋转屏幕重建页面（重建会再次启动播放服务，铃声从头开始）。 -->
         <activity
             android:name=".AlertActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTop"

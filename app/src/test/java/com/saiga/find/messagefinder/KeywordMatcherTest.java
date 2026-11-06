@@ -168,4 +168,22 @@ public class KeywordMatcherTest {
                 result.codePointCount(0, result.length())); // modified
         assertFalse(Character.isHighSurrogate(result.charAt(result.length() - 1))); // modified
     }
+
+    @Test // modified: v4.3 排除关键词（借鉴 SmsForwarder 过滤规则）
+    public void findExclusion_ignoresMarketingSms() { // modified
+        Set<String> exclusions = new LinkedHashSet<>( // modified
+                KeywordMatcher.parseKeywords("退订, 验证码")); // modified
+        assertEquals("退订", // modified
+                KeywordMatcher.findExclusion(exclusions, "回复TD退订")); // modified
+        assertNull(KeywordMatcher.findExclusion( // modified
+                exclusions, "您的账户已到账8000元")); // modified
+    } // modified
+
+    @Test // modified
+    public void findExclusion_handlesEmptyAndNull() { // modified
+        assertNull(KeywordMatcher.findExclusion(null, "任意正文")); // modified
+        assertNull(KeywordMatcher.findExclusion(new HashSet<String>(), "任意正文")); // modified
+        assertNull(KeywordMatcher.findExclusion( // modified
+                new LinkedHashSet<>(KeywordMatcher.parseKeywords("营销")), null)); // modified
+    } // modified
 }

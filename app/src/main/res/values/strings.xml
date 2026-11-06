@@ -20,7 +20,7 @@
 
     <string name="app_version">App Version</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.2.0</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.3.0</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -114,7 +114,7 @@
 
     <string name="ring_enabled">Ring the alarm</string>
     <string name="ring_enabled_key">ring_enabled</string>
-    <string name="ring_enabled_on">Alarm tone plays at max volume</string>
+    <string name="ring_enabled_on">Alarm tone plays at the chosen volume</string>
     <string name="ring_enabled_off">Silent — only the notification / vibration will alert you</string>
 
     <string name="vibrate_enabled">Vibrate</string>
@@ -191,4 +191,42 @@
     <string name="perm_item_alarm_detail">Uses setAlarmClock (user-visible alarm); no extra permission needed and works in Doze</string>
     <string name="status_permission_warning">! %1$d permission item(s) not ready - tap the checklist below</string>
     <string name="notif_permission_denied">Notifications are off - the alarm cannot be delivered</string>
+    <!-- modified: v4.3.0 新增设置项文案；*_key 用作 SharedPreferences 键，禁止翻译 -->
+    <string name="pref_category_appearance">Appearance</string>
+    <string name="pref_category_appearance_key">appearance_category_key</string>
+    <string name="pref_category_repeat">Repeat and snooze</string>
+    <string name="pref_category_repeat_key">repeat_category_key</string>
+    <string name="theme_mode_key">theme_mode</string>
+    <string name="theme_mode_title">Theme</string>
+    <string name="alarm_volume_key">alarm_volume_level</string>
+    <string name="alarm_volume_title">Alarm volume</string>
+    <string name="alarm_volume_hint">How loud the alarm plays. Follow system leaves your phone alarm volume untouched. The first notification tone still follows the system channel.</string>
+    <string name="crescendo_enabled_key">crescendo_enabled</string>
+    <string name="crescendo_enabled_title">Gradually increase volume</string>
+    <string name="crescendo_enabled_on">Starts quietly and ramps up over about 5 seconds</string>
+    <string name="crescendo_enabled_off">Plays at the chosen volume immediately</string>
+    <string name="snooze_minutes_key">snooze_minutes</string>
+    <string name="snooze_minutes_title">Snooze length</string>
+    <string name="snooze_minutes_hint">How long to wait after tapping Snooze.</string>
+    <string name="volume_key_action_key">volume_key_action</string>
+    <string name="volume_key_action_title">Volume button behaviour</string>
+    <string name="volume_key_action_hint">What the hardware volume keys do on the full-screen alert.</string>
+    <string name="custom_value_dialog_title">Enter a custom value</string>
+    <string name="custom_duration_message">Single ring duration, 0 to 120 seconds. 0 = until I stop it.</string>
+    <string name="custom_interval_message">Repeat interval, 0 to 60 minutes. 0 = do not repeat.</string>
+    <string name="custom_repeat_message">Maximum repeats, 0 to 30. 0 = unlimited.</string>
+    <string name="custom_value_invalid">Enter a whole number between %1$d and %2$d</string>
+    <string name="custom_duration_summary">Custom: %1$d s</string>
+    <string name="custom_interval_summary">Custom: %1$d min</string>
+    <string name="custom_repeat_summary">Custom: %1$d times</string>
+    <!-- modified: v4.3 借鉴 SmsForwarder「转发总开关 / 过滤规则」的两项设置 -->
+    <string name="alert_enabled_key">alert_enabled</string>
+    <string name="alert_enabled_title">Reminder master switch</string>
+    <string name="alert_enabled_on">Keyword alerts are active</string>
+    <string name="alert_enabled_off">Paused: no ringing, vibration or repeat alarms</string>
+    <string name="exclude_keywords_key">exclude_keywords</string>
+    <string name="exclude_keywords_title">Exclusion keywords</string>
+    <string name="exclude_keywords_hint">A message containing any of these words is ignored. Separate multiple words with commas, for example: unsubscribe, verification code.</string>
+    <string name="exclude_keywords_empty">Not set (nothing is excluded)</string>
+    <string name="exclude_keywords_value">Excluding: %1$s</string>
 </resources>

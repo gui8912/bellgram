@@ -21,7 +21,7 @@
 
     <string name="app_version">应用版本</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.2.0</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.3.0</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -115,7 +115,7 @@
 
     <string name="ring_enabled">响铃</string>
     <string name="ring_enabled_key">ring_enabled</string>
-    <string name="ring_enabled_on">以最大音量播放闹钟铃声</string>
+    <string name="ring_enabled_on">按所选音量播放闹钟铃声</string>
     <string name="ring_enabled_off">静音，仅靠通知/震动提醒</string>
 
     <string name="vibrate_enabled">震动</string>
@@ -192,4 +192,42 @@
     <string name="perm_item_alarm_detail">使用 setAlarmClock（用户可见闹钟），无需额外权限，低电耗模式下也能准时触发</string>
     <string name="status_permission_warning">! 有 %1$d 项权限未就绪 —— 点下方清单去处理</string>
     <string name="notif_permission_denied">通知权限未开启，提醒无法送达</string>
+    <!-- modified: v4.3.0 新增设置项文案；*_key 用作 SharedPreferences 键，禁止翻译 -->
+    <string name="pref_category_appearance">外观</string>
+    <string name="pref_category_appearance_key">appearance_category_key</string>
+    <string name="pref_category_repeat">重复与稍后</string>
+    <string name="pref_category_repeat_key">repeat_category_key</string>
+    <string name="theme_mode_key">theme_mode</string>
+    <string name="theme_mode_title">主题</string>
+    <string name="alarm_volume_key">alarm_volume_level</string>
+    <string name="alarm_volume_title">闹钟音量</string>
+    <string name="alarm_volume_hint">选择闹铃播放的响度。「跟随系统」完全不改动手机闹钟音量。通知响起时的第一声仍由系统通知渠道决定。</string>
+    <string name="crescendo_enabled_key">crescendo_enabled</string>
+    <string name="crescendo_enabled_title">渐强音量</string>
+    <string name="crescendo_enabled_on">先小声，约 5 秒内逐渐升到所选音量</string>
+    <string name="crescendo_enabled_off">立即按所选音量播放</string>
+    <string name="snooze_minutes_key">snooze_minutes</string>
+    <string name="snooze_minutes_title">稍后提醒时长</string>
+    <string name="snooze_minutes_hint">点「稍后提醒」之后，隔多久再响一次。</string>
+    <string name="volume_key_action_key">volume_key_action</string>
+    <string name="volume_key_action_title">音量键行为</string>
+    <string name="volume_key_action_hint">全屏告警页上，按下手机实体音量键时执行什么操作。</string>
+    <string name="custom_value_dialog_title">输入自定义数值</string>
+    <string name="custom_duration_message">单次响铃时长，0 到 120 秒；0 = 一直响到手动停止。</string>
+    <string name="custom_interval_message">重复提醒间隔，0 到 60 分钟；0 = 不重复。</string>
+    <string name="custom_repeat_message">最多重复次数，0 到 30；0 = 不限。</string>
+    <string name="custom_value_invalid">请输入 %1$d 到 %2$d 之间的整数</string>
+    <string name="custom_duration_summary">自定义：%1$d 秒</string>
+    <string name="custom_interval_summary">自定义：%1$d 分钟</string>
+    <string name="custom_repeat_summary">自定义：%1$d 次</string>
+    <!-- modified: v4.3 借鉴 SmsForwarder「转发总开关 / 过滤规则」的两项设置 -->
+    <string name="alert_enabled_key">alert_enabled</string>
+    <string name="alert_enabled_title">提醒总开关</string>
+    <string name="alert_enabled_on">正在按关键词监控短信</string>
+    <string name="alert_enabled_off">已暂停：不响铃、不震动、不重复提醒</string>
+    <string name="exclude_keywords_key">exclude_keywords</string>
+    <string name="exclude_keywords_title">排除关键词</string>
+    <string name="exclude_keywords_hint">短信正文含有其中任意一个词就直接忽略，多个词用逗号分隔，例如：退订、验证码、营销。</string>
+    <string name="exclude_keywords_empty">未设置（不排除任何短信）</string>
+    <string name="exclude_keywords_value">当前排除：%1$s</string>
 </resources>

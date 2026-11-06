@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- modified: v4.3.0 暗色启动窗口背景，避免冷启动/主题为暗色时先闪一帧白底。
+     splash_drawable.xml 通过同名资源在 -night 配置下自动引用本文件。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="45"
+        android:startColor="@color/surface_bg"
+        android:endColor="@color/card_bg"
+        android:type="linear" />
+</shape>

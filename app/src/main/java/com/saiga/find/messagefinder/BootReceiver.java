@@ -38,6 +38,8 @@ public class BootReceiver extends BroadcastReceiver { // modified: 新增
         try { // modified
             Context app = context.getApplicationContext() != null // modified
                     ? context.getApplicationContext() : context; // modified
+            // modified: 重启 / 覆盖安装后用户可能还没打开 App，这里补一次音量还原
+            AlarmVolumeGuard.restoreIfStale(app); // modified
             AlertSession session = AlertSession.get(app); // modified
             if (!session.isActive()) { // modified
                 Log.d(TAG, "no active alert session, nothing to restore"); // modified

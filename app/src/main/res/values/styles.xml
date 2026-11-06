@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- modified: v4.3.0 所有主题 parent 从 Light.*.Bridge 换成 DayNight 系，配合 values-night/
+     colors.xml + values-night/bools.xml 实现明亮/暗色两套主题；系统栏图标明暗统一由
+     @bool/light_system_bars 决定，EdgeToEdgeHelper 用同一个开关设置 appearance。 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- custom theme for entire app -->
-    <style name="MyAppTheme" parent="Theme.MaterialComponents.Light.DarkActionBar.Bridge">
+    <!-- modified: DayNight 父主题 + 系统栏配色/图标明暗 -->
+    <style name="MyAppTheme" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <!-- primary color for app bar, UI elements(material design) -->
         <item name="colorPrimary">@color/primaryColor</item>
         <!-- dark color for status bar -->
@@ -10,13 +14,18 @@
         <item name="colorAccent">@color/secondaryLightColor</item>
         <!-- custom style for button-->
         <item name="buttonStyle">@style/MyButtonViewStyle</item>
-        <!-- modified: 纯色浅灰底 + 白色卡片 -->
+        <!-- 纯色浅灰底 + 白色卡片（暗色下由 values-night 覆盖同名色） -->
         <item name="android:windowBackground">@color/surface_bg</item>
+        <!-- modified: 双主题下的系统栏 -->
+        <item name="android:statusBarColor">@color/surface_bg</item>
+        <item name="android:navigationBarColor">@color/surface_bg</item>
+        <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
         <!-- custom snackbar styling -->
         <item name="snackbarStyle">@style/Widget.App.Snackbar</item>
         <!-- adjust colors of edit text when used and in normal state-->
         <item name="colorControlNormal">@color/primaryLightColor</item>
-        <item name="colorControlActivated">@color/somewhat_red</item>
+        <item name="colorControlActivated">@color/accent_color</item>
         <item name="android:textColorHighlight">@color/secondaryColor</item>
     </style>
     <!-- splash drawable to be applied as splash window, before activity shows up -->
@@ -47,9 +56,9 @@
         <!-- assign a gradient(somewhat red and blue) background to a button -->
           <item name="android:background">@drawable/rounded_button_gradient</item>
         <!-- white text color to button text -->
-          <item name="android:textColor">@color/primaryTextColor</item>
+          <item name="android:textColor">@color/on_accent_text</item>
         <!-- make the button to pop-up -->
-        <item name="android:elevation">30dp</item>
+          <item name="android:elevation">30dp</item>
     </style>
 
     <!-- snackbar customization material theming -->
@@ -59,23 +68,27 @@
     </style>
 
     <!-- Dialog customization -->
-    <style name="MyDialogTheme" parent="Theme.AppCompat.Light.Dialog.Alert">
-        <item name="android:windowBackground">@color/app_logo_background</item>
-        <item name="colorAccent">@color/primaryLightColor</item>
+    <!-- modified: DayNight 对话框 + 卡片背景，避免暗色主题下弹白框 -->
+    <style name="MyDialogTheme" parent="Theme.AppCompat.DayNight.Dialog.Alert">
+        <item name="android:windowBackground">@color/card_bg</item>
+        <item name="colorAccent">@color/accent_color</item>
     </style>
 
     <!-- Theme used primarily for FTI setup / Onboarding screen -->
-    <style name="OnboardingTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+    <!-- modified: 去掉写死的 #680000，改用可跟随主题的资源 -->
+    <style name="OnboardingTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/somewhat_red</item>
-        <item name="colorPrimaryDark">#680000</item>
+        <item name="colorPrimaryDark">@color/primaryDarkColor</item>
         <item name="colorAccent">@color/lightPinkColor</item>
         <item name="android:windowContentTransitions">true</item>
         <item name="android:colorControlHighlight">@color/lightGreenColor</item>
+        <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
     </style>
 
     <!-- material themed preferences for settings screen -->
     <style name="AppSettingsTheme" parent="MyAppTheme">
-        <item name="colorAccent">@color/secondaryDarkColor</item>
+        <item name="colorAccent">@color/accent_color</item>
         <item name="preferenceTheme">@style/PreferenceThemeOverlay.v14.Material</item>
     </style>
 
@@ -91,20 +104,22 @@
     </style>
 
     <!-- 主按钮：实心、圆角、加粗 -->
+    <!-- modified: 背景/文字改用语义色，暗色主题下仍保持足够对比度 -->
     <style name="PrimaryButtonStyle" parent="Widget.MaterialComponents.Button">
         <item name="android:textSize">16sp</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:textColor">@color/primaryTextColor</item>
+        <item name="android:textColor">@color/on_accent_text</item>
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
-        <item name="backgroundTint">@color/secondaryDarkColor</item>
+        <item name="backgroundTint">@color/button_primary_bg</item>
         <item name="cornerRadius">14dp</item>
     </style>
 
     <!-- 次要按钮：描边、无填充 -->
+    <!-- modified: 描边与文字色跟随主题 -->
     <style name="SecondaryButtonStyle" parent="Widget.MaterialComponents.Button.OutlinedButton">
         <item name="android:textSize">15sp</item>
-        <item name="android:textColor">@color/secondaryDarkColor</item>
+        <item name="android:textColor">@color/accent_color</item>
         <item name="android:insetTop">0dp</item>
         <item name="android:insetBottom">0dp</item>
         <item name="cornerRadius">14dp</item>
@@ -113,18 +128,21 @@
         <item name="rippleColor">@color/status_idle_bg</item>
     </style>
     <!-- 二次开发新增（借鉴短信铃铛）：全屏告警页主题。
-         用 NoActionBar 变体，避免锁屏拉起时顶部出现一条与深色背景不协调的 ActionBar。 -->
-    <style name="AlertTheme" parent="Theme.MaterialComponents.Light.NoActionBar.Bridge">
+         modified: 改用 DayNight 父主题，告警页也跟随明亮/暗色两套配色；
+         锁屏拉起时仍是 NoActionBar，不出现不协调的顶部条。 -->
+    <style name="AlertTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/alert_bg</item>
         <item name="android:statusBarColor">@color/alert_bg</item>
         <item name="android:navigationBarColor">@color/alert_bg</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
     </style>
 
     <!-- 告警页主按钮：整屏最醒目的元素，必须一眼可点 -->
+    <!-- modified: 红底按钮文字恒为白色，不随亮/暗主题反转 -->
     <style name="AlertStopButtonStyle" parent="Widget.MaterialComponents.Button">
         <item name="backgroundTint">@color/alert_accent</item>
-        <item name="android:textColor">@color/alert_text_primary</item>
+        <item name="android:textColor">@color/on_accent_text</item>
         <item name="android:textSize">17sp</item>
         <item name="android:textStyle">bold</item>
         <item name="cornerRadius">16dp</item>

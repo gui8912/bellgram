@@ -67,6 +67,21 @@ public final class AppConfig {
     /** 夜间静音默认关闭（不改动用户既有体验）。 */
     private static final String DEFAULT_QUIET_HOURS = "off";
 
+    // ---- modified: v4.3 新增键，字面值必须与 app_preferences.xml 的 @string/*_key 一致 ----
+    private static final String KEY_THEME_MODE = "theme_mode"; // modified
+    private static final String KEY_ALARM_VOLUME = "alarm_volume_level"; // modified
+    private static final String KEY_CRESCENDO_ENABLED = "crescendo_enabled"; // modified
+    private static final String KEY_SNOOZE_MINUTES = "snooze_minutes"; // modified
+    private static final String KEY_VOLUME_KEY_ACTION = "volume_key_action"; // modified
+    /** 默认稍后提醒 5 分钟，与旧版写死的兜底值一致，升级后行为不变。 */
+    private static final int DEFAULT_SNOOZE_MINUTES = 5; // modified
+    public static final String ACTION_NONE = "none"; // modified
+    public static final String ACTION_SNOOZE = "snooze"; // modified
+    public static final String ACTION_STOP = "stop"; // modified
+    // modified: v4.3 借鉴 SmsForwarder：提醒总开关 + 排除关键词
+    private static final String KEY_ALERT_ENABLED = "alert_enabled"; // modified
+    private static final String KEY_EXCLUDE_KEYWORDS = "exclude_keywords"; // modified
+
     private final SharedPreferences configPrefs;
     private final SharedPreferences featurePrefs;
 
@@ -307,6 +322,57 @@ public final class AppConfig {
         int value = readInt(KEY_MAX_REPEAT, DEFAULT_MAX_REPEAT);
         return Math.max(0, Math.min(value, 30));
     }
+
+    /** modified: v4.3 主题模式；脏值 / 未知值一律按「跟随系统」处理。 */
+    public String getThemeMode() { // modified
+        String value = safeGetString(KEY_THEME_MODE, ThemeHelper.MODE_SYSTEM); // modified
+        if (ThemeHelper.MODE_LIGHT.equals(value) // modified
+                || ThemeHelper.MODE_DARK.equals(value)) { // modified
+            return value; // modified
+        } // modified
+        return ThemeHelper.MODE_SYSTEM; // modified
+    } // modified
+
+    /** modified: v4.3 闹钟音量档位（0=跟随系统，其余为百分比）；白名单校验交给 VolumePolicy。 */
+    public int getAlarmVolumeLevel() { // modified
+        return VolumePolicy.sanitize( // modified
+                readInt(KEY_ALARM_VOLUME, VolumePolicy.DEFAULT_LEVEL)); // modified
+    } // modified
+
+    /** modified: v4.3 渐强音量开关；默认关，保持原有「一响就到位」的行为。 */
+    public boolean isCrescendoEnabled() { // modified
+        return safeGetBoolean(KEY_CRESCENDO_ENABLED, false); // modified
+    } // modified
+
+    /** modified: v4.3 稍后提醒间隔（分钟），至少 1 分钟，防止 0 让闹钟立刻重响。 */
+    public int getSnoozeMinutes() { // modified
+        int value = readInt(KEY_SNOOZE_MINUTES, DEFAULT_SNOOZE_MINUTES); // modified
+        return Math.max(1, Math.min(value, 30)); // modified
+    } // modified
+
+    /** modified: v4.3 全屏告警页音量键行为：none / snooze / stop。 */
+    public String getVolumeKeyAction() { // modified
+        String value = safeGetString(KEY_VOLUME_KEY_ACTION, ACTION_NONE); // modified
+        if (ACTION_SNOOZE.equals(value) || ACTION_STOP.equals(value)) { // modified
+            return value; // modified
+        } // modified
+        return ACTION_NONE; // modified
+    } // modified
+
+    /** modified: 借鉴 SmsForwarder「转发功能总开关」；默认开启，关闭后完全不触发提醒。 */
+    public boolean isAlertEnabled() { // modified
+        return safeGetBoolean(KEY_ALERT_ENABLED, true); // modified
+    } // modified
+
+    /** modified: 借鉴 SmsForwarder 过滤规则；排除词复用关键词的归一化解析。 */
+    public Set<String> getExcludeKeywords() { // modified
+        String raw = safeGetString(KEY_EXCLUDE_KEYWORDS, ""); // modified
+        if (raw == null || raw.trim().isEmpty()) { // modified
+            return Collections.emptySet(); // modified
+        } // modified
+        return Collections.unmodifiableSet( // modified
+                new LinkedHashSet<>(KeywordMatcher.parseKeywords(raw))); // modified
+    } // modified
 
     /**
      * 计算一次提醒会话计划的总轮次。

@@ -16,8 +16,7 @@ public class AlertActionReceiver extends BroadcastReceiver {
     public static final String ACTION_STOP = "com.saiga.find.messagefinder.action.STOP_ALERT"; // modified: 新增
     public static final String ACTION_SNOOZE = "com.saiga.find.messagefinder.action.SNOOZE_ALERT"; // modified: 新增
 
-    /** 用户把重复间隔设为 0（不重复）时，点「稍后提醒」的兜底间隔。 */
-    private static final int FALLBACK_SNOOZE_MINUTES = 5;
+    // modified: 稍后提醒时长统一由 AppConfig.getSnoozeMinutes() 托管
 
     @Override
     public void onReceive(Context context, Intent intent) { // modified: 新增
@@ -29,9 +28,8 @@ public class AlertActionReceiver extends BroadcastReceiver {
             if (ACTION_STOP.equals(action)) {
                 AlertDispatcher.stop(context);
             } else if (ACTION_SNOOZE.equals(action)) {
-                int minutes = RoundPolicy.safeDelayMinutes(
-                        AppConfig.get(context).getRepeatIntervalMin(),
-                        FALLBACK_SNOOZE_MINUTES); // modified: 规则集中
+                // modified: 与告警页 / 服务保持一致，使用独立的贪睡时长设置
+                int minutes = AppConfig.get(context).getSnoozeMinutes(); // modified
                 AlertDispatcher.snooze(context, minutes);
             } else {
                 Log.w(TAG, "unknown action: " + action);

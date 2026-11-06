@@ -1,28 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- modified: v4.3.0 设置页重排 —— 新增外观主题、闹钟音量档位、渐强音量、
+     稍后提醒时长、音量键行为；响铃时长/间隔/次数保留原默认值并支持「自定义…」手动输入。
+     参考 Google Clock / MIUI 时钟 / Alarm Clock Xtreme 的设置项组织方式。 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:title="@string/settings_button">
 
-    <!-- modified: v4 权限体检入口。targetSdk 36 下能否响铃取决于多项系统开关，
-         把它放在设置页最上方，用户「不响」时有明确的自查入口。 -->
+    <!-- 权限体检入口：targetSdk 36 下能否响铃取决于多项系统开关，放在最上方便于自查 -->
     <Preference
+        android:icon="@drawable/ic_shield_24"
         android:key="@string/permission_check_key"
         android:title="@string/permission_check_title"
         android:summary="@string/permission_check_summary"
         android:persistent="false" />
 
-    <!-- 二次开发新增：提醒方式与重复策略 -->
+    <!-- 外观 -->
+    <!-- modified: 新增外观分组 -->
+    <PreferenceCategory
+        android:title="@string/pref_category_appearance"
+        android:key="@string/pref_category_appearance_key">
+
+        <!-- modified: 明亮 / 暗色 / 跟随系统 -->
+        <ListPreference
+            android:icon="@drawable/ic_palette_24"
+            android:key="@string/theme_mode_key"
+            android:title="@string/theme_mode_title"
+            android:dialogTitle="@string/theme_mode_title"
+            android:entries="@array/theme_mode_entries"
+            android:entryValues="@array/theme_mode_values"
+            android:defaultValue="system"
+            android:summary="%s" />
+    </PreferenceCategory>
+
+    <!-- 提醒方式 -->
     <PreferenceCategory
         android:title="@string/pref_category_reminder"
         android:key="@string/pref_category_reminder_key">
 
+        <!-- modified: 借鉴 SmsForwarder「转发功能总开关」，一键暂停全部提醒 -->
         <SwitchPreferenceCompat
-            android:key="@string/match_all_key"
-            android:title="@string/match_all_title"
-            android:defaultValue="false"
-            android:summaryOn="@string/match_all_on"
-            android:summaryOff="@string/match_all_off" />
+            android:icon="@drawable/ic_bell_24"
+            android:key="@string/alert_enabled_key"
+            android:title="@string/alert_enabled_title"
+            android:defaultValue="true"
+            android:summaryOn="@string/alert_enabled_on"
+            android:summaryOff="@string/alert_enabled_off" />
 
         <SwitchPreferenceCompat
+            android:icon="@drawable/ic_bell_24"
             android:key="@string/ring_enabled_key"
             android:title="@string/ring_enabled"
             android:defaultValue="true"
@@ -30,13 +55,36 @@
             android:summaryOff="@string/ring_enabled_off" />
 
         <SwitchPreferenceCompat
+            android:icon="@drawable/ic_vibrate_24"
             android:key="@string/vibrate_enabled_key"
             android:title="@string/vibrate_enabled"
             android:defaultValue="true"
             android:summaryOn="@string/vibrate_enabled_on"
             android:summaryOff="@string/vibrate_enabled_off" />
 
+        <!-- modified: 不再强制最大音量，改为可选档位；0 = 跟随系统、完全不改系统设置 -->
         <ListPreference
+            android:icon="@drawable/ic_volume_24"
+            android:key="@string/alarm_volume_key"
+            android:title="@string/alarm_volume_title"
+            android:dialogTitle="@string/alarm_volume_title"
+            android:dialogMessage="@string/alarm_volume_hint"
+            android:entries="@array/alarm_volume_entries"
+            android:entryValues="@array/alarm_volume_values"
+            android:defaultValue="80"
+            android:summary="%s" />
+
+        <!-- modified: 参考系统时钟「逐渐增大音量」，避免深夜一响就满音量 -->
+        <SwitchPreferenceCompat
+            android:icon="@drawable/ic_volume_24"
+            android:key="@string/crescendo_enabled_key"
+            android:title="@string/crescendo_enabled_title"
+            android:defaultValue="false"
+            android:summaryOn="@string/crescendo_enabled_on"
+            android:summaryOff="@string/crescendo_enabled_off" />
+
+        <ListPreference
+            android:icon="@drawable/ic_snooze_24"
             android:key="@string/ring_duration_key"
             android:title="@string/ring_duration_title"
             android:dialogTitle="@string/ring_duration_title"
@@ -46,7 +94,27 @@
             android:defaultValue="60"
             android:summary="%s" />
 
+        <!-- modified: 参考 Google Clock「音量按钮」设置 -->
         <ListPreference
+            android:icon="@drawable/ic_tune_24"
+            android:key="@string/volume_key_action_key"
+            android:title="@string/volume_key_action_title"
+            android:dialogTitle="@string/volume_key_action_title"
+            android:dialogMessage="@string/volume_key_action_hint"
+            android:entries="@array/volume_key_action_entries"
+            android:entryValues="@array/volume_key_action_values"
+            android:defaultValue="none"
+            android:summary="%s" />
+    </PreferenceCategory>
+
+    <!-- 重复、贪睡与静音 -->
+    <!-- modified: 新增分组，把「重复/次数/稍后/静音/匹配规则」收拢 -->
+    <PreferenceCategory
+        android:title="@string/pref_category_repeat"
+        android:key="@string/pref_category_repeat_key">
+
+        <ListPreference
+            android:icon="@drawable/ic_snooze_24"
             android:key="@string/repeat_interval_key"
             android:title="@string/repeat_interval_title"
             android:dialogTitle="@string/repeat_interval_title"
@@ -57,6 +125,7 @@
             android:summary="%s" />
 
         <ListPreference
+            android:icon="@drawable/ic_repeat_24"
             android:key="@string/max_repeat_key"
             android:title="@string/max_repeat_title"
             android:dialogTitle="@string/max_repeat_title"
@@ -65,7 +134,21 @@
             android:entryValues="@array/max_repeat_values"
             android:defaultValue="3"
             android:summary="%s" />
+
+        <!-- modified: 参考系统时钟「贪睡时长」，原先 5 分钟写死在代码里 -->
         <ListPreference
+            android:icon="@drawable/ic_snooze_24"
+            android:key="@string/snooze_minutes_key"
+            android:title="@string/snooze_minutes_title"
+            android:dialogTitle="@string/snooze_minutes_title"
+            android:dialogMessage="@string/snooze_minutes_hint"
+            android:entries="@array/snooze_minutes_entries"
+            android:entryValues="@array/snooze_minutes_values"
+            android:defaultValue="5"
+            android:summary="%s" />
+
+        <ListPreference
+            android:icon="@drawable/ic_moon_24"
             android:key="@string/quiet_hours_key"
             android:title="@string/quiet_hours_title"
             android:dialogTitle="@string/quiet_hours_title"
@@ -74,14 +157,29 @@
             android:entryValues="@array/quiet_hours_values"
             android:defaultValue="off"
             android:summary="%s" />
+
+        <!-- modified: 借鉴 SmsForwarder 的过滤规则，命中排除词的短信直接忽略 -->
+        <EditTextPreference
+            android:icon="@drawable/ic_tune_24"
+            android:key="@string/exclude_keywords_key"
+            android:title="@string/exclude_keywords_title"
+            android:dialogTitle="@string/exclude_keywords_title"
+            android:dialogMessage="@string/exclude_keywords_hint"
+            android:defaultValue="" />
+
+        <SwitchPreferenceCompat
+            android:icon="@drawable/ic_tune_24"
+            android:key="@string/match_all_key"
+            android:title="@string/match_all_title"
+            android:defaultValue="false"
+            android:summaryOn="@string/match_all_on"
+            android:summaryOff="@string/match_all_off" />
     </PreferenceCategory>
 
     <!-- preference category for experimental features -->
     <PreferenceCategory android:title="@string/app_pref_category1" android:key="@string/app_category_key1">
-        <!-- modified: 【v4.2】该开关由 AppConfig 单一托管。
-             原来 AndroidX 框架还会自动把 autosuggestion_key 写进默认 prefs，
-             与 "Settings" 文件里的 autoSuggDisabled 形成两套可分裂的状态。 -->
         <SwitchPreferenceCompat android:title="@string/auto_suggestion_feature"
+            android:icon="@drawable/ic_tune_24"
             android:defaultValue="false"
             android:persistent="false"
             android:enabled="true"
@@ -92,18 +190,21 @@
     <!-- preference category for user saved preferences -->
     <PreferenceCategory android:title="@string/app_pref_category2" android:key="@string/app_category_key2">
         <Preference android:title="@string/sms_config"
+            android:icon="@drawable/ic_tune_24"
             android:key="@string/sms_config_key"
             android:enabled="false"
             android:shouldDisableView="false"
             android:summary="%s"/>
 
         <Preference android:title="@string/app_version"
+            android:icon="@drawable/ic_bell_24"
             android:key="@string/app_version_key"
             android:enabled="false"
             android:shouldDisableView="false"
-            android:summary="@string/current_app_version"/>       
-           <!-- 二次开发新增：最近命中记录，便于自查规则是否生效 -->
+            android:summary="@string/current_app_version"/>
+
         <Preference android:title="@string/hit_log"
+            android:icon="@drawable/ic_tune_24"
             android:key="@string/hit_log_key"
             android:persistent="false"
             android:enabled="true"
@@ -111,28 +212,18 @@
             android:summary="%s"/>
 
         <Preference android:title="@string/clear_hit_log"
+            android:icon="@drawable/ic_tune_24"
             android:key="@string/clear_hit_log_key"
             android:persistent="false"
             android:enabled="true"/>
 
         <Preference android:title="@string/app_privacy_policy"
-
-
-
-
+            android:icon="@drawable/ic_shield_24"
             android:enabled="true"
             android:summary="@string/user_guidance">
             <intent android:action="android.intent.action.VIEW"
                 android:data="@string/privacy_url"/>
-           </Preference>
-
-
-
-
-
-
-
-
+        </Preference>
     </PreferenceCategory>
 
 </PreferenceScreen>

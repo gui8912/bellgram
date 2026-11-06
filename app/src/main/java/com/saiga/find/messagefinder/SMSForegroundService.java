@@ -47,7 +47,7 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     private static final String RINGTONE_RESOURCE_PATH = "raw/priority_ringtone";
     private static final long WAKE_LOCK_MARGIN_MS = 60 * 1000L;
     private static final long NO_TIMEOUT_WAKE_LOCK_MS = 30 * 60 * 1000L;
-    private static final int FALLBACK_SNOOZE_MINUTES = 5;
+    // modified: 稍后提醒时长改由 AppConfig.getSnoozeMinutes() 托管，可在设置页调整
 
     /** modified: 【v4.2】服务存活标志，供 AlertDispatcher 判断是否需要发 STOP action。 */
     private static volatile boolean sRunning = false; // modified
@@ -75,6 +75,11 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     private int ringDurationSec = 60;
     private int repeatIntervalMin = 5;
     private int currentRound = 1;
+    // modified: v4.3 音量档位 / 渐强音量
+    private int alarmVolumeLevel = VolumePolicy.DEFAULT_LEVEL; // modified
+    private boolean crescendoEnabled = false; // modified
+    private float targetPlayerVolume = 1.0f; // modified
+    private Runnable crescendoRunnable; // modified
 
     private String currentSender = "";
     private String currentKeyword = "";
@@ -115,8 +120,8 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
             handleLocalStop();
         } else if (ACTION_SNOOZE_ALERT.equals(action)) {
             handleLocalStop();
-            int minutes = RoundPolicy.safeDelayMinutes(repeatIntervalMin,
-                    FALLBACK_SNOOZE_MINUTES); // modified: 规则集中
+            // modified: 稍后提醒时长不再跟随重复间隔，也不再写死 5 分钟
+            int minutes = AppConfig.get(this).getSnoozeMinutes(); // modified
             AlertDispatcher.snoozeFromService(this, minutes); // modified: 避免自重启
         } else {
             Log.w(TAG, "unknown action: " + action);
@@ -188,9 +193,13 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         vibrateEnabled = config.isVibrateEnabled();
         ringDurationSec = config.getRingDurationSec();
         repeatIntervalMin = config.getRepeatIntervalMin();
+        alarmVolumeLevel = config.getAlarmVolumeLevel(); // modified
+        crescendoEnabled = config.isCrescendoEnabled(); // modified
         Log.d(TAG, "policy: ring=" + ringEnabled + (quietHoursActive ? "(quiet hours)" : "")
                 + ", vibrate=" + vibrateEnabled
                 + ", duration=" + ringDurationSec + "s, interval=" + repeatIntervalMin + "min"
+                + ", volume=" + alarmVolumeLevel + "%" // modified
+                + ", crescendo=" + crescendoEnabled // modified
                 + ", round=" + currentRound);
     }
 
@@ -294,18 +303,21 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         }
         if (audioManager != null) {
             try {
-                if (!audioManager.isVolumeFixed()) {
+                // modified: v4.3 只有「非跟随系统」档位才写系统设置，且不再强制最大值
+                if (!audioManager.isVolumeFixed() // modified
+                        && VolumePolicy.shouldChangeSystemVolume(alarmVolumeLevel)) { // modified
                     if (!volumeBoosted) {
                         savedAlarmVolume = audioManager.getStreamVolume(AudioManager.STREAM_ALARM);
                         volumeBoosted = true;
-                        // modified: 【v4.2】同步落盘，进程被杀后仍可恢复（onDestroy 不一定执行）
+                        // 【v4.2】同步落盘，进程被杀后仍可恢复（onDestroy 不一定执行）
                         AlarmVolumeGuard.remember(this, savedAlarmVolume); // modified
                     }
-                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM,
-                            audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0);
+                    int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM); // modified
+                    int target = VolumePolicy.targetStreamIndex(maxVolume, alarmVolumeLevel); // modified
+                    audioManager.setStreamVolume(AudioManager.STREAM_ALARM, target, 0); // modified
                 }
             } catch (Exception e) {
-                Log.w(TAG, "boost alarm volume failed", e);
+                Log.w(TAG, "apply alarm volume level failed", e); // modified
             }
         }
         try {
@@ -338,9 +350,16 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
                     return true;
                 }
             });
-            if (audioManager != null && audioManager.isVolumeFixed()) {
-                mediaPlayer.setVolume(1.0f, 1.0f);
-            }
+            // modified: 固定音量设备不能改系统流，只能用播放器自身音量近似档位；
+            // 渐强音量一律从 25% 起步，5 秒内升到目标值，不反复写系统设置。
+            targetPlayerVolume = 1.0f; // modified
+            if (audioManager != null && audioManager.isVolumeFixed() // modified
+                    && alarmVolumeLevel > VolumePolicy.FOLLOW_SYSTEM) { // modified
+                targetPlayerVolume = alarmVolumeLevel / 100f; // modified
+            } // modified
+            float startVolume = VolumePolicy.initialPlayerVolume(crescendoEnabled) // modified
+                    * targetPlayerVolume; // modified
+            mediaPlayer.setVolume(startVolume, startVolume); // modified
             mediaPlayer.prepareAsync();
             return true;
         } catch (Exception e) {
@@ -361,11 +380,48 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         }
         try {
             mp.start();
+            if (crescendoEnabled) { // modified
+                startCrescendo(); // modified
+            } // modified
             Log.d(TAG, "alarm playback started");
         } catch (IllegalStateException e) {
             Log.e(TAG, "start playback failed", e);
         }
     }
+
+    /**
+     * modified: v4.3 渐强音量。参考系统时钟 "Gradually increase volume"，
+     * 只调 MediaPlayer 自身音量，不反复写 STREAM_ALARM（那是持久化系统设置）。
+     * 5 秒 10 步；ringWindowOpen 关闭或 MediaPlayer 被释放后自动停止。
+     */
+    private void startCrescendo() { // modified
+        final int steps = 10; // modified
+        final int[] step = {0}; // modified
+        crescendoRunnable = new Runnable() { // modified
+            @Override // modified
+            public void run() { // modified
+                if (!alertActive || !ringWindowOpen || mediaPlayer == null) { // modified
+                    return; // modified
+                } // modified
+                step[0]++; // modified
+                float volume = Math.min(1.0f, // modified
+                        0.25f + 0.75f * (step[0] / (float) steps)) // modified
+                        * targetPlayerVolume; // modified
+                try { // modified
+                    mediaPlayer.setVolume(volume, volume); // modified
+                } catch (Exception e) { // modified
+                    Log.w(TAG, "crescendo step failed", e); // modified
+                    return; // modified
+                } // modified
+                if (step[0] < steps && alertHandler != null) { // modified
+                    alertHandler.postDelayed(this, 500L); // modified
+                } // modified
+            } // modified
+        }; // modified
+        if (alertHandler != null) { // modified
+            alertHandler.postDelayed(crescendoRunnable, 500L); // modified
+        } // modified
+    } // modified
 
     private void startVibration() {
         if (vibratorService == null || !vibratorService.hasVibrator()) {
@@ -409,6 +465,7 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         if (alertHandler != null) {
             alertHandler.removeCallbacksAndMessages(null);
         }
+        crescendoRunnable = null; // modified
     }
 
     /** 恢复用户原来的闹钟音量。只有确实提升过才恢复，避免把音量写成 0。 */

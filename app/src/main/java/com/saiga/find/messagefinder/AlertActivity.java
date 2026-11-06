@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.view.KeyEvent; // modified
 import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
@@ -202,10 +203,42 @@ public class AlertActivity extends AppCompatActivity {
 
     /** 稍后提醒的间隔与通知按钮保持一致。 */
     private void snoozeAndFinish() { // modified: 新增
-        int minutes = RoundPolicy.safeDelayMinutes(
-                AppConfig.get(this).getRepeatIntervalMin(), 5); // modified: 规则集中
+        // modified: 稍后提醒时长改为独立可配（参考系统时钟的贪睡时长）
+        int minutes = AppConfig.get(this).getSnoozeMinutes(); // modified
         AlertDispatcher.snooze(this, minutes);
     }
+
+    /**
+     * modified: v4.3 参考 Google Clock / MIUI 时钟的「音量按钮」设置。
+     * 默认不拦截（音量键仍正常调音量），也可设为「稍后提醒」或「停止提醒」。
+     * 只在全屏告警页生效，避免影响用户其它场景。
+     */
+    @Override // modified
+    public boolean onKeyDown(int keyCode, KeyEvent event) { // modified
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP // modified
+                || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) { // modified
+            // modified: 【v4.3 独立复审】长按音量键会连续回调 onKeyDown，
+            // 原实现每次都跑一遍 snooze/stop + finish，造成重复调度与多次结束页面。
+            if (event != null && event.getRepeatCount() > 0) { // modified
+                return true; // modified
+            } // modified
+            String action = AppConfig.get(this).getVolumeKeyAction(); // modified
+            if (AppConfig.ACTION_SNOOZE.equals(action)) { // modified
+                snoozeAndFinish(); // modified
+                finishSafely(); // modified
+                return true; // modified
+            } // modified
+            // modified: 只把明确的 "stop" 当停止。原实现用 else 兜底，
+            // 任何新增/未知动作都会被当成「结束提醒」，属于静默的状态机误判。
+            if (AppConfig.ACTION_STOP.equals(action)) { // modified
+                AlertDispatcher.stop(this); // modified
+                finishSafely(); // modified
+                return true; // modified
+            } // modified
+            return super.onKeyDown(keyCode, event); // modified
+        } // modified
+        return super.onKeyDown(keyCode, event); // modified
+    } // modified
 
     /** 返回键 = 稍后提醒。用 OnBackPressedDispatcher 兼容预测式返回手势。 */
     private void bindBackHandling() { // modified: 新增

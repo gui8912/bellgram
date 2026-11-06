@@ -15,6 +15,9 @@
 *.jpg binary
 *.jpeg binary
 *.webp binary
+# modified: v4.3.0 全仓 NUL 扫描时发现铃声资源未显式声明 binary。
+# text=auto 目前能靠 NUL 自动识别，但显式声明可避免不同 Git 版本行为差异。
+*.mp3 binary
 *.gif binary
 *.ttf binary
 *.otf binary

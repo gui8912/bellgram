@@ -1,17 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 二次开发新增：提醒方式与重复策略的可选项（中文） -->
+<!-- modified: v4.3.0 追加主题/音量/贪睡/音量键数组，并为三个数值项加「自定义…」入口。
+     所有 *_values 与英文版完全一致（作为 SharedPreferences 值，禁止翻译）。 -->
 <resources>
     <string-array name="ring_duration_entries">
         <item>直到我手动停止</item>
         <item>30 秒</item>
         <item>60 秒</item>
         <item>2 分钟</item>
+        <item>自定义…</item>
     </string-array>
     <string-array name="ring_duration_values">
         <item>0</item>
         <item>30</item>
         <item>60</item>
         <item>120</item>
+        <item>custom</item>
     </string-array>
 
     <string-array name="repeat_interval_entries">
@@ -20,6 +23,7 @@
         <item>3 分钟</item>
         <item>5 分钟</item>
         <item>10 分钟</item>
+        <item>自定义…</item>
     </string-array>
     <string-array name="repeat_interval_values">
         <item>0</item>
@@ -27,6 +31,7 @@
         <item>3</item>
         <item>5</item>
         <item>10</item>
+        <item>custom</item>
     </string-array>
 
     <string-array name="max_repeat_entries">
@@ -35,6 +40,7 @@
         <item>3 次</item>
         <item>5 次</item>
         <item>10 次</item>
+        <item>自定义…</item>
     </string-array>
     <string-array name="max_repeat_values">
         <item>0</item>
@@ -42,6 +48,7 @@
         <item>3</item>
         <item>5</item>
         <item>10</item>
+        <item>custom</item>
     </string-array>
     <string-array name="quiet_hours_entries">
         <item>关闭</item>
@@ -56,5 +63,61 @@
         <item>22-7</item>
         <item>23-8</item>
         <item>0-6</item>
+    </string-array>
+
+    <!-- modified: 明亮 / 暗色 / 跟随系统 -->
+    <string-array name="theme_mode_entries">
+        <item>跟随系统</item>
+        <item>明亮</item>
+        <item>暗色</item>
+    </string-array>
+    <string-array name="theme_mode_values">
+        <item>system</item>
+        <item>light</item>
+        <item>dark</item>
+    </string-array>
+
+    <!-- modified: 闹钟音量档位；0 = 跟随系统、不改动任何系统设置 -->
+    <string-array name="alarm_volume_entries">
+        <item>跟随系统（不改动音量）</item>
+        <item>40%</item>
+        <item>60%</item>
+        <item>80%（推荐）</item>
+        <item>100%（原来的行为）</item>
+    </string-array>
+    <string-array name="alarm_volume_values">
+        <item>0</item>
+        <item>40</item>
+        <item>60</item>
+        <item>80</item>
+        <item>100</item>
+    </string-array>
+
+    <!-- modified: 参考系统时钟「贪睡时长」 -->
+    <string-array name="snooze_minutes_entries">
+        <item>1 分钟</item>
+        <item>3 分钟</item>
+        <item>5 分钟</item>
+        <item>10 分钟</item>
+        <item>15 分钟</item>
+    </string-array>
+    <string-array name="snooze_minutes_values">
+        <item>1</item>
+        <item>3</item>
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+    </string-array>
+
+    <!-- modified: 参考 Google Clock「音量按钮」 -->
+    <string-array name="volume_key_action_entries">
+        <item>不执行操作（音量键仍可调音量）</item>
+        <item>稍后提醒</item>
+        <item>停止提醒</item>
+    </string-array>
+    <string-array name="volume_key_action_values">
+        <item>none</item>
+        <item>snooze</item>
+        <item>stop</item>
     </string-array>
 </resources>
