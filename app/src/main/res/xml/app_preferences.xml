@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- modified: v4.3.0 设置页重排 —— 新增外观主题、闹钟音量档位、渐强音量、
      稍后提醒时长、音量键行为；响铃时长/间隔/次数保留原默认值并支持「自定义…」手动输入。
-     参考 Google Clock / MIUI 时钟 / Alarm Clock Xtreme 的设置项组织方式。 -->
+     参考 Google Clock / MIUI 时钟 / Alarm Clock Xtreme 的设置项组织方式。
+     modified: v4.4.0 —— 下方 ListPreference 的 android:dialogMessage 只作为提示数据源，
+     由 SettingsActivity 自绘弹窗读取；AndroidX DialogPreference 官方文档明确标注该属性
+     「与列表型对话框冲突（conflicts with list-based dialogs）」，若交给框架默认对话框渲染，
+     就会出现「只剩一段提示、看不到任何可选项」。另新增「清除配置」入口
+     （clear_config_key），点击后必须经二次确认才执行。 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:title="@string/settings_button">
@@ -216,6 +221,15 @@
             android:key="@string/clear_hit_log_key"
             android:persistent="false"
             android:enabled="true"/>
+
+        <!-- modified: v4.4.0 原「清除配置」是首页的一枚大按钮，极易误触且点下即清空。
+             收进设置页的「应用配置」分组，点击后由 SettingsActivity 弹二次确认框，
+             只有确认才调用 AppConfig.clear()。persistent=false：它只是操作入口，不存值。 -->
+        <Preference android:title="@string/clear_config_title"
+            android:icon="@drawable/ic_tune_24"
+            android:key="@string/clear_config_key"
+            android:persistent="false"
+            android:summary="@string/clear_config_summary"/>
 
         <Preference android:title="@string/app_privacy_policy"
             android:icon="@drawable/ic_shield_24"

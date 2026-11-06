@@ -85,7 +85,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final long NAVIGATE_SETTINGS_DELAY_MS = 250L;
 
     private Button trigButton;
-    private Button clearButton;
+    // modified: v4.4.0 【删除】原 clearButton 字段。去向：「清除配置」入口已迁入应用设置页，
+    // 由 SettingsActivity 弹确认框后调用 AppConfig.clear()，首页不再持有该按钮。
     private CoordinatorLayout userMessageLayout;
     private TextInputLayout contactNumberLayout;
 
@@ -145,7 +146,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         appConfig = AppConfig.get(this); // modified: 用实例替代原来的 static SharedPreferences
 
         trigButton = findViewById(R.id.trigger);
-        clearButton = findViewById(R.id.clear);
         userMessageLayout = findViewById(R.id.user_message_layout);
 
         // 监听号码输入：格式不合法时禁用“启动”按钮并给出错误提示
@@ -210,9 +210,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
         }
 
-        clearButton.setOnClickListener(this);
         trigButton.setOnClickListener(this);
-        // 二次开发新增：主界面直接提供“提醒方式与重复”入口
+        // 二次开发新增：主界面直接提供「提醒方式」入口
         View reminderSettings = findViewById(R.id.reminder_settings);
         if (reminderSettings != null) {
             reminderSettings.setOnClickListener(new View.OnClickListener() {
@@ -526,8 +525,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         int id = v.getId();
         if (id == R.id.trigger) {
             handleTrigger();
-        } else if (id == R.id.clear) {
-            handleClear();
         }
     }
 
@@ -556,33 +553,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         saveConfig(contactRaw, keywords);
     }
 
-    /** “清除”按钮：清空配置与输入框。 */
-    private void handleClear() {
-        clearSoftKeyboardState();
-        appConfig.clear(); // modified: 统一走 AppConfig，避免漏删键
-        // 注意：这里不清空“最近命中记录”。日志属于排障信息，与配置解耦，
-        // 由设置页的“清空命中记录”单独管理，避免误删历史。
-
-        EditText contactView = findEditText(R.id.contact_value);
-        EditText messageView = findEditText(R.id.message_value);
-        // modified: 【独立复审修正】原实现直接调用 getText().clear()，
-        // findViewById 返回 null（布局被裁剪 / 换肤替换控件）时会 NPE。
-        if (messageView != null && messageView.getText() != null) {
-            messageView.getText().clear();
-        }
-        if (contactView != null && contactView.getText() != null) {
-            contactView.getText().clear();
-            contactView.clearFocus();
-        }
-        if (messageView != null) {
-            messageView.clearFocus();
-        }
-
-        clearButton.setText(R.string.cleared);
-        trigButton.setText(R.string.trigger_button);
-        setTriggerEnabled(true);
-        updateStatusUi(); // modified
-    }
+    // modified: v4.4.0 【删除】原 handleClear()：清配置 + 清输入框 + 改按钮文案 + 刷新状态条。
+    // 去向：清配置改由 SettingsActivity 的确认框回调执行（AppConfig.clear() + Toast +
+    // refreshActiveConfiguration()）；首页状态条在 onResume() 里已有 updateStatusUi() 统一刷新。
+    // 首页输入框里尚未保存的临时输入不再被连带清空，它本来就不属于「已保存的配置」。
 
     /** 读取输入框文本，永不返回 null。 */
     private String getTextOf(int viewId) { // modified: 统一空值处理
@@ -627,7 +601,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         appConfig.save(contact, keywords);
         showSnackbar(R.string.config_saved);
         trigButton.setText(R.string.triggered);
-        clearButton.setText(R.string.clear_button);
+        // modified: v4.4.0 【删除】原 clearButton.setText(R.string.clear_button)，
+        // 首页已无清除按钮；保存成功后只需更新主按钮与状态条。
         updateStatusUi(); // modified
     }
 

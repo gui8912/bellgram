@@ -18,18 +18,31 @@ package com.saiga.find.messagefinder;
 // 音量按钮」设置项组织方式，未引入任何新依赖。
 //
 // 参考：Android 官方《Settings / Migrate to AndroidX Preference》。未复制第三方代码。
+//
+// modified: v4.4.0 两处交互改造：
+//   1) 首页「清除配置」按钮迁入本页的「应用配置」分组，点击后先弹二次确认框，
+//      确认才调用 AppConfig.clear()；「清空命中记录」同样补确认框；
+//   2) 8 个 ListPreference 的点击改由本类显式接管并自行绘制选项列表，
+//      不再依赖 AndroidX 默认 ListPreferenceDialogFragmentCompat（见 bindListPreferenceDialogs 注释）。
 
 import android.content.Context; // modified
 import android.os.Bundle;
 import android.text.InputType; // modified
 import android.text.TextUtils;
 import android.util.Log;
+import android.view.View; // modified: v4.4.0 View.generateViewId()
 import android.view.ViewGroup; // modified
 import android.widget.EditText; // modified
 import android.widget.FrameLayout; // modified
+import android.widget.LinearLayout; // modified: v4.4.0 自定义单选弹窗容器
+import android.widget.RadioButton; // modified: v4.4.0 自定义单选弹窗选项
+import android.widget.RadioGroup; // modified: v4.4.0 自定义单选弹窗选项组
+import android.widget.ScrollView; // modified: v4.4.0 选项多时可滚动
+import android.widget.TextView; // modified: v4.4.0 弹窗提示文字
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog; // modified: v4.4.0 MaterialAlertDialogBuilder 的产物类型
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate; // modified
 import androidx.preference.EditTextPreference; // modified
@@ -74,6 +87,7 @@ public class SettingsActivity extends AppCompatActivity {
             setPreferencesFromResource(R.xml.app_preferences, rootKey);
             bindListSummaries();
             bindInteractivePreferences(); // modified
+            bindListPreferenceDialogs(); // modified: v4.4.0 显式接管全部下拉设置项
 
             Preference autoSuggestionPref = findPreference(getString(R.string.auto_suggestion_key));
             if (autoSuggestionPref != null) {
@@ -81,16 +95,50 @@ public class SettingsActivity extends AppCompatActivity {
                 syncAutoSuggestionState(autoSuggestionPref);
             }
 
+            // modified: v4.4.0 清空命中记录同样属于不可逆操作，补二次确认，与清除配置保持一致
             Preference clearLogPref = findPreference(getString(R.string.clear_hit_log_key));
             if (clearLogPref != null) {
                 clearLogPref.setOnPreferenceClickListener(preference -> {
-                    Context context = getContext();
+                    final Context context = getContext();
                     if (context == null) {
                         return true;
                     }
-                    HitLog.clear(context);
-                    Toast.makeText(context, R.string.hit_log_cleared, Toast.LENGTH_SHORT).show();
-                    refreshActiveConfiguration();
+                    new MaterialAlertDialogBuilder(context)
+                            .setTitle(R.string.clear_hit_log)
+                            .setMessage(R.string.clear_hit_log_confirm)
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .setPositiveButton(R.string.confirm_positive, (dialog, which) -> {
+                                HitLog.clear(context);
+                                Toast.makeText(context, R.string.hit_log_cleared,
+                                        Toast.LENGTH_SHORT).show();
+                                refreshActiveConfiguration();
+                            })
+                            .show();
+                    return true;
+                });
+            }
+
+            // modified: v4.4.0 【新增】清除配置入口。首页那枚一按就清空的按钮已删除，
+            // 这里必须先确认才真正删除；清除范围与旧按钮完全一致（号码/关键词/联系人姓名）。
+            Preference clearConfigPref = findPreference(getString(R.string.clear_config_key));
+            if (clearConfigPref != null) {
+                clearConfigPref.setOnPreferenceClickListener(preference -> {
+                    final Context context = getContext();
+                    if (context == null) {
+                        return true;
+                    }
+                    new MaterialAlertDialogBuilder(context)
+                            .setTitle(R.string.clear_config_title)
+                            .setMessage(R.string.clear_config_confirm)
+                            .setIcon(R.drawable.ic_block_24dp)
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .setPositiveButton(R.string.clear_config_positive, (dialog, which) -> {
+                                AppConfig.get(context.getApplicationContext()).clear();
+                                Toast.makeText(context, R.string.clear_config_done,
+                                        Toast.LENGTH_SHORT).show();
+                                refreshActiveConfiguration();
+                            })
+                            .show();
                     return true;
                 });
             }
@@ -107,6 +155,138 @@ public class SettingsActivity extends AppCompatActivity {
             }
             refreshActiveConfiguration();
         }
+
+        /**
+         * modified: v4.4.0 显式接管全部 ListPreference 的点击，保证「点了一定有可选项」。
+         *
+         * <p>原实现完全依赖 AndroidX 的 ListPreferenceDialogFragmentCompat：框架用
+         * {@code builder.setMessage(dialogMessage)} + {@code setSingleChoiceItems(entries)}
+         * 拼出对话框。本项目 8 个下拉项都带较长的 dialogMessage，在部分 ROM / 主题 /
+         * 小屏上提示与选项列表同框会互相挤压，表现为「只有一段提示，看不到能选的东西」，
+         * 用户报告的 5 个数值项正是这种表现。这里改为应用自己绘制选项视图：
+         * 提示单独一行、选项逐条列出、点选即写入，选项一定可见。
+         *
+         * <p>值仍通过 {@link ListPreference#setValue(String)} 写入默认 SharedPreferences，
+         * 键名 / 默认值 / 摘要 provider / AppConfig 读取链路一律不变；主题切换与
+         * 「自定义…」继续走既有的 OnPreferenceChangeListener 分支（见 applyListValue）。
+         */
+        private void bindListPreferenceDialogs() { // modified
+            int[] keys = { // modified
+                    R.string.theme_mode_key, // modified
+                    R.string.alarm_volume_key, // modified
+                    R.string.ring_duration_key, // modified
+                    R.string.volume_key_action_key, // modified
+                    R.string.repeat_interval_key, // modified
+                    R.string.max_repeat_key, // modified
+                    R.string.snooze_minutes_key, // modified
+                    R.string.quiet_hours_key // modified
+            }; // modified
+            for (int keyRes : keys) { // modified
+                Preference preference = findPreference(getString(keyRes)); // modified
+                if (preference instanceof ListPreference) { // modified
+                    preference.setOnPreferenceClickListener(p -> { // modified
+                        showChoiceDialog((ListPreference) p); // modified
+                        return true; // modified: 拦截框架默认对话框，改弹我们自己的
+                    }); // modified
+                } // modified
+            } // modified
+        } // modified
+
+        /** modified: v4.4.0 自绘单选弹窗：提示文字 + 选项列表，点选项即保存并关闭。 */
+        private void showChoiceDialog(ListPreference pref) { // modified
+            Context context = getContext(); // modified
+            if (context == null) { // modified
+                return; // modified
+            } // modified
+            CharSequence[] entries = pref.getEntries(); // modified
+            CharSequence[] values = pref.getEntryValues(); // modified
+            if (entries == null || values == null // modified
+                    || entries.length == 0 || values.length == 0) { // modified
+                Log.w(TAG, "no entries for preference: " + pref.getKey()); // modified
+                Toast.makeText(context, R.string.choice_dialog_no_options, // modified
+                        Toast.LENGTH_SHORT).show(); // modified
+                return; // modified
+            } // modified
+            final int count = Math.min(entries.length, values.length); // modified
+            final int currentIndex = pref.findIndexOfValue(pref.getValue()); // modified
+            final int pad = (int) (20 * context.getResources().getDisplayMetrics().density); // modified
+
+            LinearLayout root = new LinearLayout(context); // modified
+            root.setOrientation(LinearLayout.VERTICAL); // modified
+            root.setPadding(pad, pad / 2, pad, 0); // modified
+
+            // 提示文字单独一行，不再与选项列表争抢同一块内容区
+            CharSequence hint = pref.getDialogMessage(); // modified
+            if (!TextUtils.isEmpty(hint)) { // modified
+                TextView tip = new TextView(context); // modified
+                tip.setText(hint); // modified
+                tip.setTextSize(13); // modified
+                tip.setPadding(0, 0, 0, pad / 2); // modified
+                root.addView(tip, new LinearLayout.LayoutParams( // modified
+                        ViewGroup.LayoutParams.MATCH_PARENT, // modified
+                        ViewGroup.LayoutParams.WRAP_CONTENT)); // modified
+            } // modified
+
+            RadioGroup group = new RadioGroup(context); // modified
+            final AlertDialog[] holder = new AlertDialog[1]; // modified
+            for (int i = 0; i < count; i++) { // modified
+                RadioButton item = new RadioButton(context); // modified
+                item.setId(View.generateViewId()); // modified
+                item.setText(entries[i]); // modified
+                item.setTextSize(15); // modified
+                item.setPadding(0, pad / 3, 0, pad / 3); // modified
+                final String value = values[i] == null ? "" : values[i].toString(); // modified
+                item.setOnClickListener(v -> { // modified
+                    if (holder[0] != null) { // modified
+                        holder[0].dismiss(); // modified
+                    } // modified
+                    if (CUSTOM_VALUE.equals(value) && isNumericPreference(pref.getKey())) { // modified
+                        showCustomValueDialog(pref, pref.getKey()); // modified
+                    } else { // modified
+                        applyListValue(pref, value); // modified
+                    } // modified
+                }); // modified
+                group.addView(item, new RadioGroup.LayoutParams( // modified
+                        ViewGroup.LayoutParams.MATCH_PARENT, // modified
+                        ViewGroup.LayoutParams.WRAP_CONTENT)); // modified
+                if (i == currentIndex) { // modified
+                    item.setChecked(true); // modified
+                } // modified
+            } // modified
+            ScrollView scroll = new ScrollView(context); // modified
+            scroll.addView(group, new FrameLayout.LayoutParams( // modified
+                    ViewGroup.LayoutParams.MATCH_PARENT, // modified
+                    ViewGroup.LayoutParams.WRAP_CONTENT)); // modified
+            root.addView(scroll, new LinearLayout.LayoutParams( // modified
+                    ViewGroup.LayoutParams.MATCH_PARENT, // modified
+                    ViewGroup.LayoutParams.WRAP_CONTENT)); // modified
+
+            CharSequence title = pref.getDialogTitle(); // modified
+            if (TextUtils.isEmpty(title)) { // modified
+                title = pref.getTitle(); // modified
+            } // modified
+            AlertDialog dialog = new MaterialAlertDialogBuilder(context) // modified
+                    .setTitle(title) // modified
+                    .setView(root) // modified
+                    .setNegativeButton(android.R.string.cancel, null) // modified
+                    .create(); // modified
+            holder[0] = dialog; // modified
+            dialog.show(); // modified
+        } // modified
+
+        /**
+         * modified: v4.4.0 统一写入口，等价于框架默认的 callChangeListener + setValue。
+         * listener 返回 false 表示它已自行处理（主题重建 / 自定义数值输入），这里不再写值。
+         */
+        private void applyListValue(ListPreference pref, String value) { // modified
+            Preference.OnPreferenceChangeListener listener = // modified
+                    pref.getOnPreferenceChangeListener(); // modified
+            if (listener != null && !listener.onPreferenceChange(pref, value)) { // modified
+                return; // modified
+            } // modified
+            pref.setValue(value); // modified: persistString + 触发摘要 provider 刷新
+            Log.d(TAG, "preference saved: " + pref.getKey() + " = " + value); // modified
+        } // modified
 
         /** modified: 需要拦截变更的项（主题切换 + 三个可手工输入的数值项）。 */
         private void bindInteractivePreferences() { // modified

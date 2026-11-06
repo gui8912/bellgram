@@ -6,7 +6,8 @@
     <string name="message_hint">Keywords, separate with commas</string>
     <string name="trigger_button">Turn on alert</string>
     <string name="clear_button">Clear settings</string>
-    <string name="reminder_settings_button">Reminder mode &amp; repeat</string>
+    <!-- modified: v4.4.0 shortened so the home entry fits on one line -->
+    <string name="reminder_settings_button">Reminder mode</string>
     <string name="logo">app_logo</string>
 
     <string name="settings_button">App Settings</string>
@@ -20,7 +21,7 @@
 
     <string name="app_version">App Version</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.3.1</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.4.0</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -92,6 +93,19 @@
     <string name="clear_hit_log">Clear match history</string>
     <string name="clear_hit_log_key">clear_hit_log_key</string>
     <string name="hit_log_cleared">Match history cleared</string>
+
+    <!-- modified: v4.4.0 clear-configuration moved into settings with a confirmation dialog -->
+    <!-- This string is a SharedPreferences key; never translate it -->
+    <string name="clear_config_key">clear_config_key</string>
+    <string name="clear_config_title">Clear configuration</string>
+    <string name="clear_config_summary">Delete the saved number, keywords and contact name</string>
+    <string name="clear_config_confirm">Clear the saved configuration?\n\nThis removes the from-number, alert keywords and contact name. This cannot be undone.\n\nReminder options (volume, repeat, quiet hours, etc.), match history and any running alert are not affected.</string>
+    <string name="clear_config_positive">Clear</string>
+    <string name="clear_config_done">Saved configuration cleared</string>
+    <string name="clear_hit_log_confirm">Clear all match history? This cannot be undone.</string>
+    <string name="confirm_positive">Confirm</string>
+    <!-- modified: v4.4.0 fallback message for the custom single-choice dialog -->
+    <string name="choice_dialog_no_options">No options available for this setting. Check resource configuration.</string>
 
 
     <!-- 二次开发新增：重做界面所需文案 -->

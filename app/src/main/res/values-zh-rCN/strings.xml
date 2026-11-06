@@ -6,7 +6,8 @@
     <string name="message_hint">多个关键词用逗号分隔</string>
     <string name="trigger_button">启用提醒</string>
     <string name="clear_button">清除配置</string>
-    <string name="reminder_settings_button">提醒方式与重复</string>
+    <!-- modified: v4.4.0 文案缩短，避免首页入口按钮折成两行 -->
+    <string name="reminder_settings_button">提醒方式</string>
     <string name="logo">app_logo</string>
 
     <string name="settings_button">应用设置</string>
@@ -21,7 +22,7 @@
 
     <string name="app_version">应用版本</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.3.1</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.4.0</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -93,6 +94,19 @@
     <string name="clear_hit_log">清空命中记录</string>
     <string name="clear_hit_log_key">clear_hit_log_key</string>
     <string name="hit_log_cleared">命中记录已清空</string>
+
+    <!-- modified: v4.4.0 清除配置从首页移到应用设置，并加二次确认（防误触） -->
+    <!-- 该字符串用作 SharedPreferences 的 key，禁止翻译 -->
+    <string name="clear_config_key">clear_config_key</string>
+    <string name="clear_config_title">清除配置</string>
+    <string name="clear_config_summary">删除已保存的号码、关键词与联系人姓名</string>
+    <string name="clear_config_confirm">确定清除已保存的配置吗？\n\n将删除：接收号码、提醒关键词、联系人姓名。此操作不可恢复。\n\n提醒参数（闹钟音量、重复策略、静音时段等）、命中记录以及正在进行的提醒不受影响。</string>
+    <string name="clear_config_positive">确认清除</string>
+    <string name="clear_config_done">已清除保存的配置</string>
+    <string name="clear_hit_log_confirm">确定清空全部命中记录吗？清空后无法恢复。</string>
+    <string name="confirm_positive">确认</string>
+    <!-- modified: v4.4.0 设置项自定义单选弹窗的兜底提示 -->
+    <string name="choice_dialog_no_options">该设置项暂无可选项，请检查资源配置</string>
 
 
     <!-- 二次开发新增：重做界面所需文案 -->

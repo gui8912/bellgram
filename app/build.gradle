@@ -60,8 +60,11 @@ android {
         // modified: v4.3.0 = 新图标、双主题、音量档位与提醒参数可配，versionCode 23 -> 24
         // modified: v4.3.1 = 源码层独立复审（主题重建轮次去重、音量守护恢复失败保留标记），
         //           versionCode 24 -> 25
-        versionCode 25 // modified: v4.3.1 发布
-        versionName "4.3.1" // modified: v4.3.1 发布
+        // modified: v4.4.0 = 首页「清除配置」迁入设置页并加二次确认、入口文案单行化、
+        //           8 个下拉设置项改自绘单选弹窗（修复 dialogMessage 与列表冲突导致无选项），
+        //           versionCode 25 -> 26；固定签名不变，可直接覆盖升级
+        versionCode 26 // modified: v4.4.0 发布
+        versionName "4.4.0" // modified: v4.4.0 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
