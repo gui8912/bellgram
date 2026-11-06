@@ -6,7 +6,13 @@
      由 SettingsActivity 自绘弹窗读取；AndroidX DialogPreference 官方文档明确标注该属性
      「与列表型对话框冲突（conflicts with list-based dialogs）」，若交给框架默认对话框渲染，
      就会出现「只剩一段提示、看不到任何可选项」。另新增「清除配置」入口
-     （clear_config_key），点击后必须经二次确认才执行。 -->
+     （clear_config_key），点击后必须经二次确认才执行。
+     modified: v4.5.0 —— 8 个下拉项改用 SelfDrawnListPreference 而不是 ListPreference。
+     原因：androidx.preference 1.2.1 的 Preference.performClick() 先执行 onClick()
+     （DialogPreference 里已经提交了框架 DialogFragment），再回调 OnPreferenceClickListener，
+     监听器返回 true 拦不住那个已经提交的弹窗 —— v4.4.0 只挂监听器，实际会叠出两个对话框。
+     SelfDrawnListPreference 把 onClick() 置空，框架不再提交弹窗，只保留应用自绘的那一个。
+     另新增「试响一次」入口（preview_alert_key），按当前设置播一轮但不建立会话。 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:title="@string/settings_button">
@@ -26,7 +32,7 @@
         android:key="@string/pref_category_appearance_key">
 
         <!-- modified: 明亮 / 暗色 / 跟随系统 -->
-        <ListPreference
+        <com.saiga.find.messagefinder.SelfDrawnListPreference
             android:icon="@drawable/ic_palette_24"
             android:key="@string/theme_mode_key"
             android:title="@string/theme_mode_title"
@@ -68,7 +74,7 @@
             android:summaryOff="@string/vibrate_enabled_off" />
 
         <!-- modified: 不再强制最大音量，改为可选档位；0 = 跟随系统、完全不改系统设置 -->
-        <ListPreference
+        <com.saiga.find.messagefinder.SelfDrawnListPreference
             android:icon="@drawable/ic_volume_24"
             android:key="@string/alarm_volume_key"
             android:title="@string/alarm_volume_title"
@@ -88,7 +94,7 @@
             android:summaryOn="@string/crescendo_enabled_on"
             android:summaryOff="@string/crescendo_enabled_off" />
 
-        <ListPreference
+        <com.saiga.find.messagefinder.SelfDrawnListPreference
             android:icon="@drawable/ic_snooze_24"
             android:key="@string/ring_duration_key"
             android:title="@string/ring_duration_title"
@@ -100,7 +106,7 @@
             android:summary="%s" />
 
         <!-- modified: 参考 Google Clock「音量按钮」设置 -->
-        <ListPreference
+        <com.saiga.find.messagefinder.SelfDrawnListPreference
             android:icon="@drawable/ic_tune_24"
             android:key="@string/volume_key_action_key"
             android:title="@string/volume_key_action_title"
@@ -110,6 +116,16 @@
             android:entryValues="@array/volume_key_action_values"
             android:defaultValue="none"
             android:summary="%s" />
+
+        <!-- modified: v4.5.0 新增「试响一次」。借鉴 SmsForwarder 每个通道都有「测试」按钮、
+             reReminder 提供可靠性自检的做法：改完音量 / 时长 / 渐强之后，用户需要立刻
+             听到效果，而不是等一条真实短信来验证。点击后固定播 8 秒，不建立会话、不排闹钟。 -->
+        <Preference
+            android:icon="@drawable/ic_bell_24"
+            android:key="@string/preview_alert_key"
+            android:title="@string/preview_alert_title"
+            android:summary="@string/preview_alert_summary"
+            android:persistent="false" />
     </PreferenceCategory>
 
     <!-- 重复、贪睡与静音 -->
@@ -118,7 +134,7 @@
         android:title="@string/pref_category_repeat"
         android:key="@string/pref_category_repeat_key">
 
-        <ListPreference
+        <com.saiga.find.messagefinder.SelfDrawnListPreference
             android:icon="@drawable/ic_snooze_24"
             android:key="@string/repeat_interval_key"
             android:title="@string/repeat_interval_title"
@@ -129,7 +145,7 @@
             android:defaultValue="5"
             android:summary="%s" />
 
-        <ListPreference
+        <com.saiga.find.messagefinder.SelfDrawnListPreference
             android:icon="@drawable/ic_repeat_24"
             android:key="@string/max_repeat_key"
             android:title="@string/max_repeat_title"
@@ -141,7 +157,7 @@
             android:summary="%s" />
 
         <!-- modified: 参考系统时钟「贪睡时长」，原先 5 分钟写死在代码里 -->
-        <ListPreference
+        <com.saiga.find.messagefinder.SelfDrawnListPreference
             android:icon="@drawable/ic_snooze_24"
             android:key="@string/snooze_minutes_key"
             android:title="@string/snooze_minutes_title"
@@ -152,7 +168,7 @@
             android:defaultValue="5"
             android:summary="%s" />
 
-        <ListPreference
+        <com.saiga.find.messagefinder.SelfDrawnListPreference
             android:icon="@drawable/ic_moon_24"
             android:key="@string/quiet_hours_key"
             android:title="@string/quiet_hours_title"

@@ -43,12 +43,26 @@ public final class PermissionChecker {
         public final boolean ok;
         public final String detail;
         public final Intent fix;
+        /**
+         * modified: v4.5.0 是否「必需」。
+         *
+         * <p>原实现把「电池优化白名单」也当成必需项，于是绝大多数用户第一次打开应用就看到
+         * 主界面状态条变红、写着「N 项权限未就绪」，而实际上提醒链路（短信广播 → 通知 →
+         * 全屏页 → 前台服务 → 精确闹钟）完全不依赖它。这类「狼来了」告警会让真正缺权限
+         * 时的那条提示失去意义。现在只有「缺了就一定不响」的项才计入告警。
+         */
+        public final boolean required;
 
         private Item(String title, boolean ok, String detail, Intent fix) {
+            this(title, ok, detail, fix, true);
+        }
+
+        private Item(String title, boolean ok, String detail, Intent fix, boolean required) { // modified
             this.title = title;
             this.ok = ok;
             this.detail = detail;
             this.fix = fix;
+            this.required = required; // modified
         }
     }
 
@@ -110,7 +124,8 @@ public final class PermissionChecker {
         }
         items.add(new Item(app.getString(R.string.perm_item_battery), battery,
                 app.getString(R.string.perm_item_battery_detail),
-                new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)));
+                new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+                false)); // modified: v4.5.0 电池优化只影响「长期存活」，不影响能否响铃，降级为建议项
 
         // 5) 精确闹钟：用 setAlarmClock（用户可见闹钟），无需额外授权，仅作说明
         items.add(new Item(app.getString(R.string.perm_item_alarm), true,
@@ -119,11 +134,11 @@ public final class PermissionChecker {
         return items;
     }
 
-    /** @return 未就绪的项目数，用于主界面状态条提示 */
+    /** @return 未就绪的**必需**项目数，用于主界面状态条提示 */
     public static int missingCount(Context context) { // modified: 新增
         int count = 0;
         for (Item item : check(context)) {
-            if (!item.ok) {
+            if (!item.ok && item.required) { // modified: v4.5.0 建议项不计入告警
                 count++;
             }
         }
@@ -141,7 +156,12 @@ public final class PermissionChecker {
         CharSequence[] labels = new CharSequence[items.size()];
         for (int i = 0; i < items.size(); i++) {
             Item item = items.get(i);
-            labels[i] = (item.ok ? "✓ " : "! ") + item.title + "\n" + item.detail;
+            // modified: v4.5.0 未就绪的「建议项」用「·」而不是「!」，并标注非必需，
+            // 让用户一眼分清「不修就收不到提醒」和「修了更省心」。
+            String prefix = item.ok ? "✓ " : (item.required ? "! " : "· "); // modified
+            String suffix = item.required // modified
+                    ? "" : context.getString(R.string.perm_item_optional_hint); // modified
+            labels[i] = prefix + item.title + suffix + "\n" + item.detail; // modified
         }
         try {
             new AlertDialog.Builder(context)

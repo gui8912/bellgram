@@ -107,6 +107,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private boolean contactPickerAsked = false; // modified: 修复反复弹框打扰用户
     /** 界面是否来自配置变更重建，用于避免重复弹权限说明框。 */
     private boolean restoredFromState = false;
+    /**
+     * modified: v4.5.0 本次编辑中从通讯录选到的姓名，等点「启动」时再落盘。
+     *
+     * <p>原实现是「选完立刻保存姓名」，于是用户选了张三、回头把号码改成了别人的，
+     * 号码已经更新、`contact_name` 还留着张三 —— 通知与告警页会显示「张三 (13800000000)」，
+     * 而实际发短信的是另一个人。现在姓名跟着「这次保存的号码」一起提交，
+     * 号码变了又没重新选人，就明确清掉旧姓名（宁可少显示，也不显示错的）。
+     */
+    private String pendingContactName = ""; // modified
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -158,57 +167,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
         final AutoCompleteTextView contactTextView = findViewById(R.id.contact_value);
-        // 焦点变化时，按状态决定是否提示“从通讯录选择联系人”
-        contactTextView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-            @Override
-            public void onFocusChange(View view, boolean hasFocus) {
-                if (!hasFocus) {
-                    return;
-                }
-                boolean shouldAsk = (isAutoSuggestionDisabled || appConfig.isAutoSuggestionDisabled())
-                        && !isContactPicked && !contactPickerAsked; // modified: 会话内只问一次
-                if (!shouldAsk) {
-                    return;
-                }
-                contactPickerAsked = true;
-                showContactPickerDialog();
-            }
-        });
-
-        // 自动联想开启时才初始化游标适配器（默认关闭）
-        if (!appConfig.isAutoSuggestionDisabled()) {
-            setupContactAdapter();
-            if (contactAdapter != null) {
-                contactTextView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                    @Override
-                    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                        TextView contactTitle = view.findViewById(R.id.contact_title);
-                        if (contactTitle != null) {
-                            appConfig.saveContactName(contactTitle.getText().toString());
-                            Log.d(TAG, "selected phone contact " + contactTitle.getText());
-                        }
-                    }
-                });
-                contactAdapter.setCursorToStringConverter(new SimpleCursorAdapter.CursorToStringConverter() {
-                    @Override
-                    public CharSequence convertToString(Cursor cursor) {
-                        if (cursor == null) {
-                            return "";
-                        }
-                        int index = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
-                        if (index < 0) {
-                            return "";
-                        }
-                        // 去掉空格、横线与国际区号，统一成国内习惯的 11 位号码
-                        return PhoneNumbers.canonical(cursor.getString(index)); // modified: 替换原 spliceNumber
-                    }
-                });
-                contactTextView.setAdapter(contactAdapter);
-            }
-            if (checkReadContactPermission()) {
-                setFilter();
-            }
-        }
+        if (contactTextView == null) { // modified: v4.5.0 布局被裁剪/换肤替换控件时不再 NPE
+            Log.w(TAG, "contact input missing, contact picker and auto suggestion disabled"); // modified
+        } else { // modified
+            bindContactInput(contactTextView); // modified: 抽出方法，缩短 onCreate
+        } // modified
 
         trigButton.setOnClickListener(this);
         // 二次开发新增：主界面直接提供「提醒方式」入口
@@ -237,6 +200,67 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         // 状态条统一在 onResume 中刷新（onCreate 之后必然执行，避免重复调用）
     }
+
+    /**
+     * modified: v4.5.0 抽出。号码输入框的焦点提示与通讯录联想都挂在这里，
+     * 原先是 onCreate 里近 50 行内联代码，且没有对 findViewById 结果判空。
+     *
+     * @param contactTextView 号码输入框，调用方已判空
+     */
+    private void bindContactInput(@NonNull AutoCompleteTextView contactTextView) { // modified
+        // 焦点变化时，按状态决定是否提示“从通讯录选择联系人”
+        contactTextView.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            @Override
+            public void onFocusChange(View view, boolean hasFocus) {
+                if (!hasFocus) {
+                    return;
+                }
+                boolean shouldAsk = (isAutoSuggestionDisabled || appConfig.isAutoSuggestionDisabled())
+                        && !isContactPicked && !contactPickerAsked; // modified: 会话内只问一次
+                if (!shouldAsk) {
+                    return;
+                }
+                contactPickerAsked = true;
+                showContactPickerDialog();
+            }
+        });
+
+        // 自动联想开启时才初始化游标适配器（默认关闭）
+        if (!appConfig.isAutoSuggestionDisabled()) {
+            setupContactAdapter();
+            if (contactAdapter != null) {
+                contactTextView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                        TextView contactTitle = view.findViewById(R.id.contact_title);
+                        if (contactTitle != null) {
+                            // modified: v4.5.0 先记在本次编辑里，点「启动」时随号码一起落盘
+                            pendingContactName = contactTitle.getText().toString(); // modified
+                            Log.d(TAG, "selected phone contact " + pendingContactName); // modified
+                        }
+                    }
+                });
+                contactAdapter.setCursorToStringConverter(new SimpleCursorAdapter.CursorToStringConverter() {
+                    @Override
+                    public CharSequence convertToString(Cursor cursor) {
+                        if (cursor == null) {
+                            return "";
+                        }
+                        int index = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+                        if (index < 0) {
+                            return "";
+                        }
+                        // 去掉空格、横线与国际区号，统一成国内习惯的 11 位号码
+                        return PhoneNumbers.canonical(cursor.getString(index)); // modified: 替换原 spliceNumber
+                    }
+                });
+                contactTextView.setAdapter(contactAdapter);
+            }
+            if (checkReadContactPermission()) {
+                setFilter();
+            }
+        }
+    } // modified
 
     /**
      * Android 13(API 33)+ 通知权限必须在运行时申请。
@@ -499,7 +523,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             } else {
                 Log.w(TAG, "contact input view missing, picked number not applied");
             }
-            appConfig.saveContactName(contactName);
+            // modified: v4.5.0 姓名先记在本次编辑里，等点「启动」再随号码一起落盘
+            pendingContactName = contactName == null ? "" : contactName.trim(); // modified
             // 用户已成功选过联系人，后续不再打扰
             isContactPicked = true;
             contactPickerAsked = true;
@@ -598,7 +623,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      * @param keywords 关键词列表
      */
     private void saveConfig(String contact, List<String> keywords) { // modified: 参数化，替代依赖成员变量的旧实现
+        String previousContact = appConfig.getContact(); // modified: v4.5.0 用于判断号码是否变了
         appConfig.save(contact, keywords);
+        // modified: v4.5.0 姓名与号码同步提交。
+        // 原实现选完联系人立刻保存姓名，用户随后把号码改成别人的，姓名不会跟着变，
+        // 通知里就会出现「张三 (13900000000)」这种错位信息。
+        String normalizedContact = contact == null ? "" : contact.trim(); // modified
+        if (!pendingContactName.isEmpty()) { // modified
+            appConfig.saveContactName(pendingContactName); // modified
+        } else if (!normalizedContact.equals(previousContact)) { // modified
+            appConfig.saveContactName(""); // modified: 号码变了又没重新选人，清掉旧姓名
+        } // modified
+        pendingContactName = ""; // modified
         showSnackbar(R.string.config_saved);
         trigButton.setText(R.string.triggered);
         // modified: v4.4.0 【删除】原 clearButton.setText(R.string.clear_button)，

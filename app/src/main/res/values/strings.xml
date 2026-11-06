@@ -21,7 +21,7 @@
 
     <string name="app_version">App Version</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.4.0</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.0</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -203,6 +203,8 @@
     <string name="perm_item_battery_detail">Set to No restrictions on Redmi / HyperOS, or the alarm may be killed</string>
     <string name="perm_item_alarm">Exact repeat alarms</string>
     <string name="perm_item_alarm_detail">Uses setAlarmClock (user-visible alarm); no extra permission needed and works in Doze</string>
+    <!-- modified: v4.5.0 mark recommended-only checks so the home screen stops flagging them as errors -->
+    <string name="perm_item_optional_hint"> (recommended, not required)</string>
     <string name="status_permission_warning">! %1$d permission item(s) not ready - tap the checklist below</string>
     <string name="notif_permission_denied">Notifications are off - the alarm cannot be delivered</string>
     <!-- modified: v4.3.0 新增设置项文案；*_key 用作 SharedPreferences 键，禁止翻译 -->
@@ -225,6 +227,19 @@
     <string name="volume_key_action_key">volume_key_action</string>
     <string name="volume_key_action_title">Volume button behaviour</string>
     <string name="volume_key_action_hint">What the hardware volume keys do on the full-screen alert.</string>
+
+    <!-- modified: v4.5.0 preview / self-test, inspired by SmsForwarder channel tests and reReminder reliability check -->
+    <string name="preview_alert_key">preview_alert</string>
+    <string name="preview_alert_title">Play a test alert</string>
+    <string name="preview_alert_summary">Rings for 8 seconds with your current volume, crescendo and vibration settings</string>
+    <string name="preview_alert_confirm">This plays an alert for about 8 seconds using your current settings.\n\nIt is a test only: no alert session is created, no repeat is scheduled, and any pending alert is left untouched.</string>
+    <string name="preview_alert_playing">An alert is already ringing. Stop it before running a test</string>
+    <string name="preview_alert_started">Test alert playing, stops automatically in about 8 seconds</string>
+    <string name="preview_alert_silent">Both ring and vibration are off, so a test would be silent</string>
+    <string name="preview_alert_failed">Could not start the test alert. Check notification permission</string>
+    <string name="preview_sender">Test alert</string>
+    <string name="preview_keyword">test</string>
+    <string name="preview_body">This is a test: if you can hear it and feel the vibration, the alert chain works.</string>
     <string name="custom_value_dialog_title">Enter a custom value</string>
     <string name="custom_duration_message">Single ring duration, 0 to 120 seconds. 0 = until I stop it.</string>
     <string name="custom_interval_message">Repeat interval, 0 to 60 minutes. 0 = do not repeat.</string>

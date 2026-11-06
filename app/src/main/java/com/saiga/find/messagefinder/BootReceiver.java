@@ -31,8 +31,15 @@ public class BootReceiver extends BroadcastReceiver { // modified: 新增
         }
         String action = intent.getAction(); // modified
         // modified: MY_PACKAGE_REPLACED 同样会清掉本应用的闹钟（覆盖安装 / 应用更新）
-        if (!Intent.ACTION_BOOT_COMPLETED.equals(action) // modified
-                && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) { // modified
+        final boolean bootOrUpdate = Intent.ACTION_BOOT_COMPLETED.equals(action) // modified
+                || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action); // modified
+        // modified: v4.5.0 补「时间/时区被修改」。setAlarmClock 用的是 RTC 绝对时刻，
+        // 用户手动改系统时间会让排队中的那一轮提前或推迟（时区变更只影响显示，不影响绝对时刻）。
+        // 参考 NeoAlarm / RecurringReminders 的做法：这两类广播到来时只「重新挂好下一轮」，
+        // 不像开机那样立刻补响一轮 —— 用户改时钟并不是在要求提醒。
+        final boolean clockChanged = Intent.ACTION_TIME_CHANGED.equals(action) // modified
+                || Intent.ACTION_TIMEZONE_CHANGED.equals(action); // modified
+        if (!bootOrUpdate && !clockChanged) { // modified
             return;
         }
         try { // modified
@@ -45,6 +52,13 @@ public class BootReceiver extends BroadcastReceiver { // modified: 新增
                 Log.d(TAG, "no active alert session, nothing to restore"); // modified
                 return;
             }
+            if (clockChanged) { // modified: v4.5.0 改时钟只重挂闹钟，不立即补响
+                int interval = AppConfig.get(app).getRepeatIntervalMin(); // modified
+                AlertScheduler.cancel(app); // modified
+                AlertScheduler.scheduleNext(app, Math.max(1, interval), session.getRound() + 1); // modified
+                Log.i(TAG, "re-armed alert after " + action + ", in " + Math.max(1, interval) + " min"); // modified
+                return; // modified
+            } // modified
             // modified: 没有持久化「下一次触发时刻」，无法精确补算剩余时间；
             // 直接补发下一轮通知（内含闹铃音 + 全屏 Intent），再由调度器挂好后续闹钟。
             // onRepeatAlarm 内部会用实时配置与总轮次复核，超限则自动结束会话。

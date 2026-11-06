@@ -163,7 +163,12 @@ public final class AlertDispatcher {
             AlertScheduler.scheduleNext(app, safeDelay, nextRound);
             session.markSnoozed(); // modified: 【v4.2】标记下一轮不受配置复核影响
             if (stopService) {
-                requestServiceStop(app);
+                // modified: v4.5.0 用「静音」而不是「停止」请求服务收尾。
+                // handleLocalStop() 走的是 stopForeground(REMOVE)，会把下面刚发出的
+                // 「已稍后提醒 · N 分钟后再次响铃」通知一起撤掉 —— 用户点完稍后提醒，
+                // 通知立刻消失，看起来很像是操作没生效。ACTION_SILENCE 走 DETACH，
+                // 停掉铃声但保留通知，语义与「稍后提醒」完全一致。
+                requestServiceSilence(app); // modified
             }
             // 用静音渠道覆盖通知：只改文案，不再重复出声
             postQuiet(app, app.getString(R.string.notif_status_snoozed, safeDelay));
@@ -302,6 +307,67 @@ public final class AlertDispatcher {
             }
         }
     }
+
+    /**
+     * 让正在播放的服务**停下来但保留通知**。
+     *
+     * <p>modified: v4.5.0 新增。与 {@link #requestServiceStop} 的区别只在收尾方式：
+     * STOP 走 stopForeground(REMOVE)（用户明确结束了提醒，通知该消失）；
+     * SILENCE 走 DETACH（只是别响了，通知还要留着显示「已稍后提醒」）。
+     */
+    private static void requestServiceSilence(Context app) { // modified: v4.5.0 新增
+        if (!SMSForegroundService.isRunning()) { // modified
+            Log.d(TAG, "alert service not running, nothing to silence"); // modified
+            return; // modified
+        } // modified
+        try { // modified
+            Intent intent = new Intent(app, SMSForegroundService.class); // modified
+            intent.setAction(SMSForegroundService.ACTION_SILENCE_ALERT); // modified
+            app.startService(intent); // modified
+        } catch (Exception e) { // modified
+            Log.w(TAG, "graceful silence rejected, fall back to stopService", e); // modified
+            try { // modified
+                app.stopService(new Intent(app, SMSForegroundService.class)); // modified
+            } catch (Exception stopError) { // modified
+                Log.e(TAG, "stopService also failed", stopError); // modified
+            } // modified
+        } // modified
+    } // modified
+
+    /**
+     * 试响一次：按当前设置播放固定 8 秒，**不建立会话、不排闹钟、不改会话状态**。
+     *
+     * <p>modified: v4.5.0 新增。参考 SmsForwarder 给每个转发通道都配「测试」按钮、
+     * reReminder 提供可靠性自检的做法：用户改完音量/时长/渐强后，最需要的是立刻听到效果。
+     *
+     * <p>合规性：只能由用户可见的界面（设置页）调用。从用户可见状态启动前台服务
+     * 属于 Android 12+ 的官方豁免情形，不会触发 ForegroundServiceStartNotAllowedException。
+     *
+     * @return true 表示已发出启动请求
+     */
+    public static synchronized boolean preview(Context context) { // modified: v4.5.0 新增
+        if (context == null) { // modified
+            return false; // modified
+        } // modified
+        try { // modified
+            Context app = app(context); // modified
+            if (SMSForegroundService.isRunning()) { // modified
+                Log.i(TAG, "alert service busy, skip preview"); // modified
+                return false; // modified
+            } // modified
+            Intent intent = new Intent(app, SMSForegroundService.class); // modified
+            intent.setAction(SMSForegroundService.ACTION_PREVIEW_ALERT); // modified
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) { // modified
+                app.startForegroundService(intent); // modified
+            } else { // modified
+                app.startService(intent); // modified
+            } // modified
+            return true; // modified
+        } catch (Exception e) { // modified
+            Log.e(TAG, "start preview alert failed", e); // modified
+            return false; // modified
+        } // modified
+    } // modified
 
     private static Context app(Context context) {
         return context.getApplicationContext() != null

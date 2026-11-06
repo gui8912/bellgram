@@ -42,6 +42,12 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     public static final String ACTION_STOP_ALERT = "com.stop.foreground";
     /** 兼容 v3 残留通知的「稍后提醒」action。 */
     public static final String ACTION_SNOOZE_ALERT = "com.snooze.foreground";
+    /** modified: v4.5.0 停止播放但保留通知（「稍后提醒」收尾用，与 STOP 的 REMOVE 区分）。 */
+    public static final String ACTION_SILENCE_ALERT = "com.silence.foreground";
+    /** modified: v4.5.0 试响：按当前设置播一轮，不建立会话、不排闹钟。 */
+    public static final String ACTION_PREVIEW_ALERT = "com.preview.foreground";
+    /** modified: 试响固定播放 8 秒：足够判断音量/震动是否正常，又不会让人找不到停止入口。 */
+    private static final int PREVIEW_DURATION_SEC = 8;
 
     private static final String TAG = "SmsService";
     private static final String RINGTONE_RESOURCE_PATH = "raw/priority_ringtone";
@@ -72,6 +78,8 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     private boolean ringEnabled = true;
     private boolean vibrateEnabled = true;
     private boolean quietHoursActive = false;
+    /** modified: v4.5.0 本次运行是否为「试响」：结束时只退服务，不碰会话与闹钟。 */
+    private boolean previewMode = false;
     private int ringDurationSec = 60;
     private int repeatIntervalMin = 5;
     private int currentRound = 1;
@@ -117,9 +125,13 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
             handleStartAlert(intent);
         } else if (ACTION_STOP_ALERT.equals(action)) {
             // 纯本地清理：状态、闹钟、通知都由 AlertDispatcher 处理，避免两边互相递归调用
-            handleLocalStop();
+            handleLocalStop(true); // modified: v4.5.0 参数化：用户明确停止 -> 连通知一起撤
+        } else if (ACTION_SILENCE_ALERT.equals(action)) { // modified: v4.5.0 只静音、保留通知
+            handleLocalStop(false); // modified
+        } else if (ACTION_PREVIEW_ALERT.equals(action)) { // modified: v4.5.0 试响
+            handlePreview(); // modified
         } else if (ACTION_SNOOZE_ALERT.equals(action)) {
-            handleLocalStop();
+            handleLocalStop(true); // modified: v4.5.0
             // modified: 稍后提醒时长不再跟随重复间隔，也不再写死 5 分钟
             int minutes = AppConfig.get(this).getSnoozeMinutes(); // modified
             AlertDispatcher.snoozeFromService(this, minutes); // modified: 避免自重启
@@ -185,6 +197,55 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         startRound();
     }
 
+    /**
+     * modified: v4.5.0 新增。试响：按当前音量 / 渐强 / 震动设置播一轮，固定 8 秒后自动停。
+     *
+     * <p>与 {@link #handleStartAlert} 的差别是**完全不碰会话**：
+     * 不读 AlertSession、不写轮次、不排闹钟，因此不会把用户等待中的提醒覆盖掉。
+     * 时长也不跟随「单次响铃时长」——那条设置允许 0（一直响），试响若照做，
+     * 用户会得到一个没有停止按钮的长铃。
+     */
+    private void handlePreview() { // modified
+        if (alertActive) { // modified
+            Log.d(TAG, "alert round already playing, ignore preview"); // modified
+            return; // modified
+        } // modified
+        currentSender = getString(R.string.preview_sender); // modified
+        currentKeyword = getString(R.string.preview_keyword); // modified
+        currentPerson = ""; // modified
+        currentBody = getString(R.string.preview_body); // modified
+        currentRound = 1; // modified
+        previewMode = true; // modified
+
+        readReminderPolicy(); // modified: 与真实提醒用同一套音量/渐强/震动设置
+        // modified: 试响是用户主动点的，不该被夜间静音吞掉 —— 否则半夜想验证设置时会以为坏了
+        ringEnabled = AppConfig.get(this).isRingEnabled(); // modified
+        ringDurationSec = PREVIEW_DURATION_SEC; // modified: 固定 8 秒，避免 0 = 无限响
+        cancelRingTimeout(); // modified
+        stopRingAndVibration(); // modified
+
+        // modified: 9 参重载，withActions=false —— 试响不该带「停止 / 稍后提醒」按钮：
+        // 那两个按钮走的是 AlertDispatcher，会把一条正在等待的真实会话一起结束掉。
+        // 试响固定 8 秒自动收尾，用户不需要按钮。
+        Notification notification = NotificationHelper.build(this, // modified
+                NotificationHelper.CHANNEL_ID_ALERT, currentSender, currentKeyword, // modified
+                currentPerson, currentBody, getString(R.string.preview_alert_title), // modified
+                false, false); // modified
+        try { // modified
+            startForeground(NotificationHelper.NOTIFICATION_ID, notification); // modified
+            foregroundStarted = true; // modified
+        } catch (Exception e) { // modified
+            Log.e(TAG, "startForeground failed, cancel preview", e); // modified
+            previewMode = false; // modified
+            stopSelf(); // modified
+            return; // modified
+        } // modified
+
+        alertActive = true; // modified
+        acquireWakeLock(computeWakeLockTimeoutMs()); // modified
+        startRound(); // modified
+    } // modified
+
     /** 读取本轮生效的提醒策略（用户在设置页改完，下一轮立刻生效）。 */
     private void readReminderPolicy() { // modified: 重写，不再计算常驻总轮次
         AppConfig config = AppConfig.get(this);
@@ -208,6 +269,20 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         if (!alertActive) {
             return;
         }
+        // modified: v4.5.0 响铃和震动都被关掉时，这一轮没有任何可播的内容。
+        // 原实现会照常挂上定时器；若「单次响铃时长」选的是「直到我手动停止」（0），
+        // 定时器根本不创建，服务就带着前台通知与 WakeLock 一直挂着，
+        // 直到用户发现通知栏里有个关不掉的东西。这里直接收尾，让轮次继续按间隔推进。
+        if (!ringEnabled && !vibrateEnabled) { // modified
+            Log.d(TAG, "ring and vibration both disabled, end this round at once"); // modified
+            alertHandler.post(new Runnable() { // modified
+                @Override // modified
+                public void run() { // modified
+                    endRound(); // modified
+                } // modified
+            }); // modified
+            return; // modified
+        } // modified
         if (ringEnabled) {
             ringWindowOpen = true;
             if (!startAlarmPlayback()) {
@@ -249,6 +324,15 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         releasePlayer();
         releaseWakeLock();
 
+        // modified: v4.5.0 试响到此为止：不读会话、不排闹钟、不改任何状态，直接退服务。
+        // 通知用 REMOVE，否则通知栏会留下一条写着「试响一次」的死通知。
+        if (previewMode) { // modified
+            previewMode = false; // modified
+            Log.d(TAG, "preview finished"); // modified
+            stopSelfSafely(true); // modified
+            return; // modified
+        } // modified
+
         AlertSession session = AlertSession.get(this);
         int rounds = Math.max(1, currentRound);
         if (!session.isActive()) {
@@ -269,11 +353,17 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         stopSelfSafely(false);
     }
 
-    /** 收到 STOP：只做本地清理，绝不碰闹钟与会话状态（由 AlertDispatcher 统一负责）。 */
-    private void handleLocalStop() { // modified: 新增，替代 v3 的 stopAlert
-        Log.d(TAG, "local stop");
+    /**
+     * 收到 STOP / SILENCE：只做本地清理，绝不碰闹钟与会话状态（由 AlertDispatcher 统一负责）。
+     *
+     * @param removeNotification true = 连通知一起撤（用户明确停止 / 试响结束）；
+     *                           false = 保留通知（稍后提醒：通知还要显示「已稍后提醒」）
+     */
+    private void handleLocalStop(boolean removeNotification) { // modified: v4.5.0 参数化
+        Log.d(TAG, "local stop, removeNotification=" + removeNotification);
         alertActive = false;
         ringWindowOpen = false;
+        previewMode = false; // modified: 试响被中断时也要复位，避免影响下一次真实提醒
         cancelRingTimeout();
         stopRingAndVibration();
         restoreAlarmVolume();
@@ -283,7 +373,8 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         // AlertDispatcher.stop() 先 cancel 通知再请求停止，服务随后 DETACH 会把
         // 一条仍带「停止 / 稍后提醒」按钮的通知重新留在通知栏，用户点了停止却没停干净。
         // 本地停止属于「用户明确结束」，应当 REMOVE；endRound 的等待通知仍用 DETACH。
-        stopSelfSafely(true); // modified
+        // modified: v4.5.0 「稍后提醒」不属于「明确结束」，走 SILENCE + DETACH，见 AlertDispatcher。
+        stopSelfSafely(removeNotification); // modified
     }
 
     /** 铃声播放失败时，换到带声音渠道再提醒一次，保证至少响一声。 */
@@ -557,7 +648,7 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     @Override
     public void onTimeout(int startId, int fgsType) { // modified: 新增
         Log.w(TAG, "foreground service timeout, stop round");
-        handleLocalStop();
+        handleLocalStop(true); // modified: v4.5.0 参数化
     }
 
     @Override

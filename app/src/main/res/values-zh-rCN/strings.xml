@@ -22,7 +22,7 @@
 
     <string name="app_version">应用版本</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.4.0</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.0</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -204,6 +204,8 @@
     <string name="perm_item_battery_detail">红米 / HyperOS 必须设为「无限制」，否则后台被杀、闹铃不响</string>
     <string name="perm_item_alarm">重复提醒闹钟</string>
     <string name="perm_item_alarm_detail">使用 setAlarmClock（用户可见闹钟），无需额外权限，低电耗模式下也能准时触发</string>
+    <!-- modified: v4.5.0 区分「必需」与「建议」，避免电池优化未加白名单时主界面常年报警 -->
+    <string name="perm_item_optional_hint">（建议开启，非必需）</string>
     <string name="status_permission_warning">! 有 %1$d 项权限未就绪 —— 点下方清单去处理</string>
     <string name="notif_permission_denied">通知权限未开启，提醒无法送达</string>
     <!-- modified: v4.3.0 新增设置项文案；*_key 用作 SharedPreferences 键，禁止翻译 -->
@@ -226,6 +228,19 @@
     <string name="volume_key_action_key">volume_key_action</string>
     <string name="volume_key_action_title">音量键行为</string>
     <string name="volume_key_action_hint">全屏告警页上，按下手机实体音量键时执行什么操作。</string>
+
+    <!-- modified: v4.5.0 新增「试响一次」——借鉴 SmsForwarder 的通道测试与 reReminder 的可靠性自检 -->
+    <string name="preview_alert_key">preview_alert</string>
+    <string name="preview_alert_title">试响一次</string>
+    <string name="preview_alert_summary">按当前音量、渐强与震动设置响 8 秒，用来确认真的会响</string>
+    <string name="preview_alert_confirm">将按当前设置播放约 8 秒提醒。\n\n这是一次试响：不会建立提醒会话，不会安排重复提醒，也不会影响正在等待的提醒。</string>
+    <string name="preview_alert_playing">正在提醒中，请先结束当前提醒再试响</string>
+    <string name="preview_alert_started">正在试响，约 8 秒后自动停止</string>
+    <string name="preview_alert_silent">响铃与震动都已关闭，试响不会有任何效果</string>
+    <string name="preview_alert_failed">试响启动失败，请检查通知权限</string>
+    <string name="preview_sender">试响测试</string>
+    <string name="preview_keyword">试响</string>
+    <string name="preview_body">这是一次试响：听到声音、感觉到震动，就说明提醒链路是通的。</string>
     <string name="custom_value_dialog_title">输入自定义数值</string>
     <string name="custom_duration_message">单次响铃时长，0 到 120 秒；0 = 一直响到手动停止。</string>
     <string name="custom_interval_message">重复提醒间隔，0 到 60 分钟；0 = 不重复。</string>

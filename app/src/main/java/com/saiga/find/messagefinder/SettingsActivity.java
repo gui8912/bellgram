@@ -24,6 +24,13 @@ package com.saiga.find.messagefinder;
 //      确认才调用 AppConfig.clear()；「清空命中记录」同样补确认框；
 //   2) 8 个 ListPreference 的点击改由本类显式接管并自行绘制选项列表，
 //      不再依赖 AndroidX 默认 ListPreferenceDialogFragmentCompat（见 bindListPreferenceDialogs 注释）。
+//
+// modified: v4.5.0 —— 把「接管」做彻底：仅挂 OnPreferenceClickListener 是不够的，
+//   Preference.performClick() 会先执行 DialogPreference.onClick()（已提交框架弹窗），
+//   再回调监听器，于是自绘弹窗与框架弹窗会叠在一起。8 个设置项改用
+//   SelfDrawnListPreference（onClick 置空），框架弹窗彻底不再出现。
+//   同时修掉两处交互缺陷：自定义数值输入非法时对话框被系统关掉、页面销毁时自绘弹窗窗口泄漏；
+//   并新增「试响一次」入口，让用户改完设置能立刻验证。
 
 import android.content.Context; // modified
 import android.os.Bundle;
@@ -81,6 +88,44 @@ public class SettingsActivity extends AppCompatActivity {
     public static class AppPreferenceFragment extends PreferenceFragmentCompat
             implements Preference.OnPreferenceChangeListener {
 
+        /**
+         * modified: v4.5.0 当前显示的对话框。
+         *
+         * <p>自绘弹窗用的是 Activity 的 Context，一旦页面在弹窗显示期间销毁（旋转屏幕、
+         * 主题切换重建、返回键退出），窗口就会泄漏，logcat 里是 WindowLeaked，
+         * 部分 ROM 上还会直接抛 BadTokenException。这里统一登记，在 onDestroyView 里关掉。
+         */
+        private AlertDialog activeDialog;
+
+        /** modified: v4.5.0 统一登记并显示对话框，替代散落的 .show()。 */
+        private void showTracked(AlertDialog dialog) {
+            activeDialog = dialog;
+            dialog.setOnDismissListener(d -> {
+                if (activeDialog == dialog) {
+                    activeDialog = null;
+                }
+            });
+            dialog.show();
+        }
+
+        private void dismissActiveDialog() { // modified: v4.5.0
+            AlertDialog dialog = activeDialog;
+            activeDialog = null;
+            if (dialog != null && dialog.isShowing()) {
+                try {
+                    dialog.dismiss();
+                } catch (Exception e) {
+                    Log.w(TAG, "dismiss active dialog failed", e);
+                }
+            }
+        }
+
+        @Override
+        public void onDestroyView() { // modified: v4.5.0 防止窗口泄漏
+            dismissActiveDialog();
+            super.onDestroyView();
+        }
+
         @Override
         public void onCreatePreferences(@Nullable Bundle savedInstanceState,
                                         @Nullable String rootKey) { // modified: AndroidX 标准回调
@@ -103,7 +148,7 @@ public class SettingsActivity extends AppCompatActivity {
                     if (context == null) {
                         return true;
                     }
-                    new MaterialAlertDialogBuilder(context)
+                    showTracked(new MaterialAlertDialogBuilder(context) // modified: v4.5.0 统一登记
                             .setTitle(R.string.clear_hit_log)
                             .setMessage(R.string.clear_hit_log_confirm)
                             .setNegativeButton(android.R.string.cancel, null)
@@ -113,7 +158,7 @@ public class SettingsActivity extends AppCompatActivity {
                                         Toast.LENGTH_SHORT).show();
                                 refreshActiveConfiguration();
                             })
-                            .show();
+                            .create()); // modified
                     return true;
                 });
             }
@@ -127,7 +172,7 @@ public class SettingsActivity extends AppCompatActivity {
                     if (context == null) {
                         return true;
                     }
-                    new MaterialAlertDialogBuilder(context)
+                    showTracked(new MaterialAlertDialogBuilder(context) // modified: v4.5.0 统一登记
                             .setTitle(R.string.clear_config_title)
                             .setMessage(R.string.clear_config_confirm)
                             .setIcon(R.drawable.ic_block_24dp)
@@ -138,7 +183,44 @@ public class SettingsActivity extends AppCompatActivity {
                                         Toast.LENGTH_SHORT).show();
                                 refreshActiveConfiguration();
                             })
-                            .show();
+                            .create()); // modified
+                    return true;
+                });
+            }
+
+            // modified: v4.5.0 【新增】试响一次。改完音量 / 时长 / 渐强后立刻能听到效果，
+            // 不用等一条真实短信来验证——这是「设置到底生效没有」最直接的答案。
+            Preference previewPref = findPreference(getString(R.string.preview_alert_key));
+            if (previewPref != null) {
+                previewPref.setOnPreferenceClickListener(preference -> {
+                    final Context context = getContext();
+                    if (context == null) {
+                        return true;
+                    }
+                    AppConfig config = AppConfig.get(context);
+                    if (!config.isRingEnabled() && !config.isVibrateEnabled()) {
+                        Toast.makeText(context, R.string.preview_alert_silent,
+                                Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                    showTracked(new MaterialAlertDialogBuilder(context)
+                            .setTitle(R.string.preview_alert_title)
+                            .setMessage(R.string.preview_alert_confirm)
+                            .setIcon(R.drawable.ic_bell_24)
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .setPositiveButton(R.string.confirm_positive, (dialog, which) -> {
+                                if (SMSForegroundService.isRunning()) {
+                                    Toast.makeText(context, R.string.preview_alert_playing,
+                                            Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
+                                boolean started = AlertDispatcher.preview(context);
+                                Toast.makeText(context,
+                                        started ? R.string.preview_alert_started
+                                                : R.string.preview_alert_failed,
+                                        Toast.LENGTH_SHORT).show();
+                            })
+                            .create());
                     return true;
                 });
             }
@@ -161,10 +243,16 @@ public class SettingsActivity extends AppCompatActivity {
          *
          * <p>原实现完全依赖 AndroidX 的 ListPreferenceDialogFragmentCompat：框架用
          * {@code builder.setMessage(dialogMessage)} + {@code setSingleChoiceItems(entries)}
-         * 拼出对话框。本项目 8 个下拉项都带较长的 dialogMessage，在部分 ROM / 主题 /
-         * 小屏上提示与选项列表同框会互相挤压，表现为「只有一段提示，看不到能选的东西」，
-         * 用户报告的 5 个数值项正是这种表现。这里改为应用自己绘制选项视图：
-         * 提示单独一行、选项逐条列出、点选即写入，选项一定可见。
+         * 拼出对话框，而 AppCompat 的 AlertController 在两者同时存在时只渲染提示文字、
+         * 不渲染选项列表，用户报告的 5 个数值项正是这种表现。这里改为应用自己绘制选项视图：
+         * 提示单独一行、选项逐条列出、点选即写入。
+         *
+         * <p>modified: v4.5.0 补上关键一步。仅靠 {@code setOnPreferenceClickListener} 返回 true
+         * 并**不能**阻止框架弹窗：androidx.preference 1.2.1 的
+         * {@code Preference.performClick()} 先调用 {@code onClick()}
+         * （{@code DialogPreference} 里已经 {@code showDialog()} 提交了 DialogFragment），
+         * 之后才回调监听器。因此 XML 里这 8 项改成了 {@link SelfDrawnListPreference}，
+         * 它的 {@code onClick()} 是空实现，框架不再提交任何弹窗，只剩下面这一个。
          *
          * <p>值仍通过 {@link ListPreference#setValue(String)} 写入默认 SharedPreferences，
          * 键名 / 默认值 / 摘要 provider / AppConfig 读取链路一律不变；主题切换与
@@ -271,7 +359,7 @@ public class SettingsActivity extends AppCompatActivity {
                     .setNegativeButton(android.R.string.cancel, null) // modified
                     .create(); // modified
             holder[0] = dialog; // modified
-            dialog.show(); // modified
+            showTracked(dialog); // modified: v4.5.0 统一登记，页面销毁时自动关掉
         } // modified
 
         /**
@@ -498,29 +586,42 @@ public class SettingsActivity extends AppCompatActivity {
                     ViewGroup.LayoutParams.MATCH_PARENT, // modified
                     ViewGroup.LayoutParams.WRAP_CONTENT)); // modified
 
-            new MaterialAlertDialogBuilder(context) // modified
+            // modified: v4.5.0 手动接管「确定」按钮。
+            // 原实现用 setPositiveButton(..., listener)：Android 的按钮回调**先关闭对话框**
+            // 再执行 listener，于是输入非法时只弹一个 Toast，对话框已经消失、原值也没改，
+            // 用户得重新点开设置项再输一次。改成 setPositiveButton(null) + 自设 OnClickListener，
+            // 非法输入就地标红并保留对话框。
+            final AlertDialog dialog = new MaterialAlertDialogBuilder(context) // modified
                     .setTitle(R.string.custom_value_dialog_title) // modified
                     .setMessage(messageRes) // modified
                     .setView(holder) // modified
                     .setNegativeButton(android.R.string.cancel, null) // modified
-                    .setPositiveButton(android.R.string.ok, (dialog, which) -> { // modified
-                        int number; // modified
-                        try { // modified
-                            number = Integer.parseInt(input.getText().toString().trim()); // modified
-                        } catch (NumberFormatException e) { // modified
-                            number = -1; // modified
-                        } // modified
-                        if (number < min || number > max) { // modified
-                            Toast.makeText(context, context.getString( // modified
-                                    R.string.custom_value_invalid, min, max), // modified
-                                    Toast.LENGTH_SHORT).show(); // modified
-                            return; // modified
-                        } // modified
-                        // setValue 会 persistString 并触发自定义摘要 provider
-                        pref.setValue(String.valueOf(number)); // modified
-                        Log.d(TAG, "custom value saved: " + key + " = " + number); // modified
-                    }) // modified
-                    .show(); // modified
+                    .setPositiveButton(android.R.string.ok, null) // modified: 由 OnShowListener 接管
+                    .create(); // modified
+
+            dialog.setOnShowListener(ignored -> { // modified
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> { // modified
+                    int number; // modified
+                    try { // modified
+                        number = Integer.parseInt(input.getText().toString().trim()); // modified
+                    } catch (NumberFormatException e) { // modified
+                        number = -1; // modified
+                    } // modified
+                    if (number < min || number > max) { // modified
+                        String message = context.getString( // modified
+                                R.string.custom_value_invalid, min, max); // modified
+                        input.setError(message); // modified: 就地提示，不关闭对话框
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show(); // modified
+                        return; // modified
+                    } // modified
+                    input.setError(null); // modified
+                    // setValue 会 persistString 并触发自定义摘要 provider
+                    pref.setValue(String.valueOf(number)); // modified
+                    Log.d(TAG, "custom value saved: " + key + " = " + number); // modified
+                    dialog.dismiss(); // modified: 只有成功才关闭
+                }); // modified
+            }); // modified
+            showTracked(dialog); // modified: v4.5.0 统一登记
         } // modified
 
         /** 刷新「当前配置」「命中记录」「权限体检」三项摘要。 */

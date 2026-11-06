@@ -63,8 +63,11 @@ android {
         // modified: v4.4.0 = 首页「清除配置」迁入设置页并加二次确认、入口文案单行化、
         //           8 个下拉设置项改自绘单选弹窗（修复 dialogMessage 与列表冲突导致无选项），
         //           versionCode 25 -> 26；固定签名不变，可直接覆盖升级
-        versionCode 26 // modified: v4.4.0 发布
-        versionName "4.4.0" // modified: v4.4.0 发布
+        // modified: v4.5.0 = 全盘审计（设置页框架弹窗叠加、稍后提醒通知被撤、静音空转、
+        //           换号后联系人姓名残留、时间/时区变更未重挂闹钟），新增「试响一次」自检，
+        //           versionCode 26 -> 27；固定签名不变，可直接覆盖升级
+        versionCode 27 // modified: v4.5.0 发布
+        versionName "4.5.0" // modified: v4.5.0 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
