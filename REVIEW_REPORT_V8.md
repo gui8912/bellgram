@@ -564,8 +564,14 @@ if (restored) {
 ### 11.6 版本与验证
 
 - `versionCode 24 → 25`，`versionName 4.3.1`，`current_app_version` 同步为 `4.3.1`。
-- 改动面：2 个 Java 文件各 1 处逻辑、1 处注释，4 处版本/文档。
-- 三项静态检查、XML 良构、中英资源配对、Java 状态机扫描全部重跑；CI 重新编译 + 单测。
+- 改动面：2 个 Java 文件（2 处逻辑 + 1 处注释）与 6 处版本/文档
+  （`app/build.gradle`、中英 `strings.xml`、`README.md`、`BUILD.md`、本报告）。
+- 三项静态检查、XML 良构、中英资源配对、Java 状态机扫描全部重跑。
+- CI run `42142620837`（sha `a07c7bf`）：单测 + 三项静态检查 + `assembleDebug` 全部 success。
+- 产物 `bellgram-4.3.1.apk`：9,877,880 B，sha256 `3a5a5f18…f61b`；自写 AXML 解析确认
+  `versionCode 25` / `versionName 4.3.1` / `targetSdk 36` / `minSdk 23`，权限集合与
+  v4.3.0 完全相同，DEX 含 `last_started_round` 与 `restore stale alarm volume failed`
+  两处修复标记，X.509 证书与公钥与 v4.3.0 一致（可覆盖安装）。
 - 新增 2 条真机验收（已写入 `BUILD.md` §7）：
   1. 告警页显示中切换主题（或系统深色模式变化）触发重建后，再点同一条通知，**不应**重播已结束的轮次；
   2. 用 100% 档位响铃中强杀进程，重启后系统闹钟音量应回到原值；若首次恢复失败，下次启动仍会再试。
