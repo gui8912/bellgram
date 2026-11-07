@@ -56,6 +56,15 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     // 去向：v4.5.3 起不再内置音频文件，铃声统一由 AlertRingtone.alarmUri() 取系统闹钟音。
     private static final long WAKE_LOCK_MARGIN_MS = 60 * 1000L;
     private static final long NO_TIMEOUT_WAKE_LOCK_MS = 30 * 60 * 1000L;
+    /**
+     * 【新增 v4.6.1】只震动模式的单轮上限（秒）。
+     *
+     * <p>「响铃」关闭、「单次响铃时长」选「一直响到手动停止」时，本轮没有任何可播的
+     * 音频，只有震动。原实现因为 {@code ringDurationSec == 0} 不挂结束定时器，
+     * 于是震动会无限循环、前台服务与 WakeLock 一起常驻，用户没注意到就一直在耗电，
+     * 只能进系统设置强停。这里给只震动模式一个明确上限，保证每轮必然收尾。
+     */
+    private static final int VIBRATE_ONLY_MAX_SEC = 60; // 新增 v4.6.1
     // modified: 稍后提醒时长改由 AppConfig.getSnoozeMinutes() 托管，可在设置页调整
 
     /** modified: 【v4.2】服务存活标志，供 AlertDispatcher 判断是否需要发 STOP action。 */
@@ -212,6 +221,13 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         ringEnabled = config.isRingEnabled() && !quietHoursActive;
         vibrateEnabled = config.isVibrateEnabled();
         ringDurationSec = config.getRingDurationSec();
+        // 【新增 v4.6.1】关了响铃又把单轮时长设为「一直响到手动停止」时，本轮只剩震动；
+        // 若不设上限，startRound() 不会挂结束定时器，震动与前台服务会一直挂着。
+        if (!ringEnabled && ringDurationSec <= 0) { // 新增 v4.6.1
+            ringDurationSec = VIBRATE_ONLY_MAX_SEC; // 新增 v4.6.1
+            Log.i(TAG, "ring disabled, cap vibration-only round to " // 新增 v4.6.1
+                    + VIBRATE_ONLY_MAX_SEC + "s"); // 新增 v4.6.1
+        } // 新增 v4.6.1
         repeatIntervalMin = config.getRepeatIntervalMin();
         alarmVolumeLevel = config.getAlarmVolumeLevel(); // modified
         crescendoEnabled = config.isCrescendoEnabled(); // modified

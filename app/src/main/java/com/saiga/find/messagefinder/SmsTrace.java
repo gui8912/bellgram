@@ -15,8 +15,12 @@ package com.saiga.find.messagefinder;
 
 import android.Manifest; // 新增 v4.5.7
 import android.content.Context;
+import android.content.Intent; // 新增 v4.6.1：诊断对话框直达通知设置
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager; // 新增 v4.5.7
+import android.net.Uri; // 新增 v4.6.1
+import android.os.Build; // 新增 v4.6.1
+import android.provider.Settings; // 新增 v4.6.1
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
@@ -210,6 +214,14 @@ public final class SmsTrace {
                 notif = false;
             }
             b.append("应用通知总开关：").append(notif ? "已开启" : "【已关闭】").append('\n');
+            // 【新增 v4.6.1】渠道重要性/声音 + 全屏通知权限。
+            // 这两项是「应用通知总开关看起来正常、实际却完全没反应」的两个盲区：
+            //   · 渠道被系统或用户设成关闭/静音后，notify() 会被静默丢弃，应用侧无异常；
+            //   · Android 14+ 未授予全屏通知权限时，锁屏也不会拉起告警页。
+            // 以前只能让用户自己去系统设置里逐项看，现在截图里直接有。
+            b.append("提醒渠道：").append(NotificationHelper.describeAudibleChannel(app)).append('\n');
+            b.append("全屏通知权限：").append(NotificationHelper.canUseFullScreenIntent(app)
+                    ? "允许" : "【受限，锁屏不会弹告警页】").append('\n');
             // 【新增 v4.6.0】铃声来源进快照：用户换了自定义铃声后若「响一声就停」，
             // 这张截图能立刻区分是自定义文件损坏还是播放服务没起来。
             b.append("当前铃声：").append(AlertRingtone.sourceLabel(app));
@@ -242,6 +254,11 @@ public final class SmsTrace {
                     .setTitle(R.string.sms_trace_title)
                     .setMessage(body)
                     .setNegativeButton(android.R.string.cancel, null)
+                    // 【新增 v4.6.1】快照里已经能看到渠道重要性/声音与全屏权限，
+                    // 但用户还得自己去系统设置里翻。这里给一个直达入口，
+                    // 把「看出问题」和「修掉问题」之间的步骤压到一次点击。
+                    .setPositiveButton(R.string.sms_trace_notif_settings,
+                            (dialog, which) -> openNotificationSettings(context))
                     .setNeutralButton(R.string.sms_trace_clear, (dialog, which) -> {
                         clear(context);
                         Toast.makeText(context, R.string.sms_trace_cleared,
@@ -253,6 +270,40 @@ public final class SmsTrace {
             Log.w(TAG, "show trace dialog failed", e);
         }
     }
+
+    /**
+     * 【新增 v4.6.1】跳到本应用的系统通知设置页。
+     *
+     * <p>从对话框回调里调用，context 可能是 Activity，也可能是 ApplicationContext，
+     * 统一加 {@code FLAG_ACTIVITY_NEW_TASK}；Android 8 以下没有渠道级设置页，
+     * 直接退到「应用详情」。两条都失败时不抛异常——诊断页本身不能因此崩掉。
+     */
+    private static void openNotificationSettings(Context context) { // 新增 v4.6.1
+        if (context == null) { // 新增 v4.6.1
+            return; // 新增 v4.6.1
+        } // 新增 v4.6.1
+        try { // 新增 v4.6.1
+            Intent intent; // 新增 v4.6.1
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { // 新增 v4.6.1
+                intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS); // 新增 v4.6.1
+                intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName()); // 新增 v4.6.1
+            } else { // 新增 v4.6.1
+                intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, // 新增 v4.6.1
+                        Uri.fromParts("package", context.getPackageName(), null)); // 新增 v4.6.1
+            } // 新增 v4.6.1
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 新增 v4.6.1
+            context.startActivity(intent); // 新增 v4.6.1
+        } catch (Exception e) { // 新增 v4.6.1
+            Log.w(TAG, "open notification settings failed", e); // 新增 v4.6.1
+            try { // 新增 v4.6.1
+                context.startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, // 新增
+                        Uri.fromParts("package", context.getPackageName(), null)) // 新增 v4.6.1
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); // 新增 v4.6.1
+            } catch (Exception ignored) { // 新增 v4.6.1
+                Log.w(TAG, "open app details settings also failed"); // 新增 v4.6.1
+            } // 新增 v4.6.1
+        } // 新增 v4.6.1
+    } // 新增 v4.6.1
 
     /** 单行化 + 码点安全截断，防止畸形号码或正文把环形缓冲挤坏。 */
     private static String oneLine(String value, int maxLength) { // 新增 v4.5.6

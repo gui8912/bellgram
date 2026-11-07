@@ -1,6 +1,7 @@
 package com.saiga.find.messagefinder;
 
 import android.content.Intent;
+import android.media.AudioManager; // 新增 v4.6.1：音量键作用于闹钟流
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -58,6 +59,10 @@ public class AlertActivity extends AppCompatActivity {
         showOverLockScreen();
         setContentView(R.layout.activity_alert);
         EdgeToEdgeHelper.apply(this, R.id.alert_root); // modified: targetSdk 35+ 强制边到边
+        // 【新增 v4.6.1】本页播放的是 STREAM_ALARM，但 Activity 默认把音量键绑到
+        // STREAM_MUSIC。用户听到铃声想按音量键调小，实际改的是媒体音量：铃声一点没小，
+        // 退出后音乐/视频的音量却被改乱了。显式绑到闹钟流，音量键才和耳朵听到的一致。
+        setVolumeControlStream(AudioManager.STREAM_ALARM); // 新增 v4.6.1
         bindActions();
         bindBackHandling(); // modified: 预测式返回手势
         bindContent(getIntent());

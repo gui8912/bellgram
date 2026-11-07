@@ -128,8 +128,21 @@ android {
         //           AlertRingtone.alarmUri 改为自定义优先+系统闹钟音兜底，
         //           持续响铃与试响自动跟随，诊断快照补「当前铃声」。
         //           versionCode 36 -> 37；固定签名不变，可直接覆盖升级
-        versionCode 37 // modified: v4.6.0 发布
-        versionName "4.6.0" // modified: v4.6.0 发布
+        // modified: v4.6.1 = 全量静态审计后的缺陷修复，不新增任何设置项：
+        //           ①【P1】关掉响铃 / 处于夜间静音时段时仍会响「一声」——通知渠道音由系统在
+        //           notify() 时播放，不走前台服务，此前无论策略如何都固定用带闹铃音的渠道。
+        //           改为按「响铃开关 + 夜间静音」选渠道（静音渠道 CHANNEL_ID_ALERT）。
+        //           ②【P1】只震动模式 + 单轮时长选「一直响到手动停止」时，startRound() 不挂
+        //           结束定时器，震动/前台服务/WakeLock 会无限常驻；加 60 秒上限。
+        //           ③【P1】PermissionChecker.check() 直接解引用 getApplicationContext()，
+        //           补空值兜底（与项目其它门面一致）。
+        //           ④【P2】告警页音量键默认作用于媒体流，而声音走闹钟流；
+        //           加 setVolumeControlStream(STREAM_ALARM)。
+        //           ⑤【P2】诊断快照补「提醒渠道（importance + 有无声音）」「全屏通知权限」，
+        //           对话框加「通知设置」直达入口——渠道被系统降级是又一个静默失效点。
+        //           versionCode 37 -> 38；固定签名不变，可直接覆盖升级
+        versionCode 38 // modified: v4.6.1 发布
+        versionName "4.6.1" // modified: v4.6.1 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

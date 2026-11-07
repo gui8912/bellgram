@@ -72,7 +72,11 @@ public final class PermissionChecker {
         if (context == null) {
             return items;
         }
-        Context app = context.getApplicationContext();
+        // modified: v4.6.1 与项目其它门面保持一致：ApplicationContext 理论上可能返回 null
+        // （测试桩 / 极端 Context 包装），此处直接调用 app.getPackageName() 会 NPE，
+        // 而这条路径正是「权限体检」的入口，崩在这里等于用户彻底失去自查手段。
+        Context app = context.getApplicationContext() != null // modified
+                ? context.getApplicationContext() : context; // modified
         String pkg = app.getPackageName();
         Intent appDetails = appDetailsIntent(pkg);
 

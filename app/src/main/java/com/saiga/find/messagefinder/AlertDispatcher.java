@@ -255,22 +255,40 @@ public final class AlertDispatcher {
     /** 发一轮「带闹铃音 + 全屏 Intent」的通知。这是整个应用最可靠的唤醒入口。 */
     private static void postRound(Context app, int round, CharSequence status) { // modified: 新增
         AlertSession session = AlertSession.get(app);
+        // 【新增 v4.6.1】「响铃开关」与「夜间静音」必须同时管住通知渠道那一声。
+        // 原实现固定用 CHANNEL_ID_AUDIBLE 发每一轮提醒：渠道自带的闹铃音由系统在
+        // notify() 时播放，完全不经过 SMSForegroundService，于是用户关掉「响铃」、
+        // 或正处在夜间静音时段里，仍然会听到「一声」——设置看起来没生效。
+        // 现在按当前策略选渠道：有声渠道只在本轮确实要出声时使用；
+        // 关铃 / 夜间静音改走静音渠道，持续响铃与震动仍由播放服务负责。
+        AppConfig config = AppConfig.get(app); // 新增 v4.6.1
+        boolean quietHours = config.isInQuietHours(); // 新增 v4.6.1
+        boolean ringEnabled = config.isRingEnabled(); // 新增 v4.6.1
+        boolean audible = ringEnabled && !quietHours; // 新增 v4.6.1
+        String channelId = audible // 新增 v4.6.1
+                ? NotificationHelper.CHANNEL_ID_AUDIBLE // 新增 v4.6.1
+                : NotificationHelper.CHANNEL_ID_ALERT; // 新增 v4.6.1
         // modified: 【独立复审修正】只有这里传 true。全屏 Intent 是「叫人」的手段，
         // 只应出现在真正要提醒的那一轮；状态更新（等待中/已稍后/已结束）绝不能带，
         // 否则用户明明已经点过「停止」，锁屏却又弹出一个「提醒已结束」的全屏页。
-        NotificationHelper.post(app, NotificationHelper.CHANNEL_ID_AUDIBLE,
+        NotificationHelper.post(app, channelId,
                 session.getFrom(), session.getKeyword(), session.getPerson(),
                 session.getBody(), status, true);
-        Log.d(TAG, "posted alert notification, round=" + round);
+        Log.d(TAG, "posted alert notification, round=" + round + ", audible=" + audible);
         // 【新增 v4.5.9】通知自带的渠道音只响「一声」；本轮设定时长的持续响铃要靠
         // AlertActivity -> SMSForegroundService。全屏 Intent 亮屏会被降级，故挂一条兜底闹钟。
         // 诊断里同时记录设定时长与全屏权限，避免「只响一声」再变成黑盒。
         try {
-            int duration = AppConfig.get(app).getRingDurationSec();
+            int duration = config.getRingDurationSec();
             boolean fullScreenAllowed = NotificationHelper.canUseFullScreenIntent(app);
             SmsTrace.add(app, "本轮通知已发出",
                     "第 " + round + " 轮；设定响铃 "
                             + (duration <= 0 ? "直到手动停止" : duration + " 秒")
+                            // 【新增 v4.6.1】把「渠道音开/关」写进诊断：
+                            // 用户报「关了响铃还是响一声」时，这一行就是答案。
+                            + "；渠道音=" + (audible
+                                    ? "开"
+                                    : (quietHours ? "关（夜间静音）" : "关（响铃已关闭）"))
                             + "；全屏通知权限=" + (fullScreenAllowed ? "允许" : "受限"));
             AlertScheduler.scheduleRoundFallback(app, round); // 新增 v4.5.9
         } catch (Exception e) {

@@ -400,6 +400,58 @@ public final class NotificationHelper {
         }
     }
 
+    /**
+     * 【新增 v4.6.1】把「提醒渠道」在系统里的真实状态翻译成一句中文，供诊断快照使用。
+     *
+     * <p>为什么必须有这一项：渠道的重要性与声音在创建后**不可由应用修改**，
+     * 用户在系统设置里把它设成「静音 / 关闭」之后，{@code notify()} 会被系统静默丢弃，
+     * 应用侧连异常都没有。此时「应用通知总开关」仍显示已开启，只看那一行会误判。
+     * 之前排查「收到短信完全没反应」时就卡在这个盲区，现在一张截图即可分辨。
+     *
+     * @return 例如「高；声音=有」/「【已关闭】；声音=【无】」；读取失败返回说明文字
+     */
+    public static String describeAudibleChannel(Context context) { // 新增 v4.6.1
+        if (context == null) { // 新增 v4.6.1
+            return "未知"; // 新增 v4.6.1
+        } // 新增 v4.6.1
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) { // 新增 v4.6.1
+            return "系统提示音（Android 7 及以下无渠道）"; // 新增 v4.6.1
+        } // 新增 v4.6.1
+        try { // 新增 v4.6.1
+            NotificationManager manager = // 新增 v4.6.1
+                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE); // 新增 v4.6.1
+            NotificationChannel channel = manager == null // 新增 v4.6.1
+                    ? null : manager.getNotificationChannel(CHANNEL_ID_AUDIBLE); // 新增 v4.6.1
+            if (channel == null) { // 新增 v4.6.1
+                return "【渠道不存在，提醒会被系统丢弃】"; // 新增 v4.6.1
+            } // 新增 v4.6.1
+            String level; // 新增 v4.6.1
+            switch (channel.getImportance()) { // 新增 v4.6.1
+                case NotificationManager.IMPORTANCE_NONE: // 新增 v4.6.1
+                    level = "【已关闭】"; // 新增 v4.6.1
+                    break; // 新增 v4.6.1
+                case NotificationManager.IMPORTANCE_MIN: // 新增 v4.6.1
+                case NotificationManager.IMPORTANCE_LOW: // 新增 v4.6.1
+                    level = "【低，可能不弹横幅】"; // 新增 v4.6.1
+                    break; // 新增 v4.6.1
+                case NotificationManager.IMPORTANCE_DEFAULT: // 新增 v4.6.1
+                    level = "中"; // 新增 v4.6.1
+                    break; // 新增 v4.6.1
+                case NotificationManager.IMPORTANCE_HIGH: // 新增 v4.6.1
+                    level = "高"; // 新增 v4.6.1
+                    break; // 新增 v4.6.1
+                default: // 新增 v4.6.1
+                    level = "未知(" + channel.getImportance() + ")"; // 新增 v4.6.1
+                    break; // 新增 v4.6.1
+            } // 新增 v4.6.1
+            Uri sound = channel.getSound(); // 新增 v4.6.1
+            return level + "；声音=" + (sound == null ? "【无】" : "有"); // 新增 v4.6.1
+        } catch (Exception e) { // 新增 v4.6.1
+            Log.w(TAG, "describe audible channel failed", e); // 新增 v4.6.1
+            return "读取失败（不影响提醒）"; // 新增 v4.6.1
+        } // 新增 v4.6.1
+    } // 新增 v4.6.1
+
     /** 「停止」动作：发广播，不再直接启动服务（后台启动服务同样受限）。 */
     private static PendingIntent buildStopIntent(Context context) { // modified: getService -> getBroadcast
         Intent intent = new Intent(context, AlertActionReceiver.class);
