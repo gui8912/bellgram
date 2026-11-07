@@ -21,7 +21,11 @@
 
     <string name="app_version">App Version</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.5.1</string> <!-- modified: 同步界面版本号 -->
+    <!-- modified: v4.5.2 【删除】app_tagline（首屏简介）与 permission_tip
+         （红米 / HyperOS 必做四步）：对应控件已从 activity_main.xml 移除，
+         权限体检入口改挂 status_text（见 MainActivity#bindStatusPermissionEntry），
+         应用用途由引导页与 README 说明。此处不留死资源。 -->
+    <string name="current_app_version">4.5.2</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -109,7 +113,6 @@
 
 
     <!-- 二次开发新增：重做界面所需文案 -->
-    <string name="app_tagline">Rings an alarm at full volume when an SMS with your keywords arrives, so a quiet notification tone never lets you miss it.</string>
     <string name="status_idle">Not listening yet — enter at least one keyword, then tap "Turn on alert".</string>
     <string name="status_listening">Listening · keywords: %1$s</string>
     <!-- 二次开发新增：状态条上的提醒策略摘要 -->
@@ -120,7 +123,6 @@
     <string name="mode_vibrate_off">no vibration</string>
     <string name="mode_repeat_unlimited">repeat every %1$d min until stopped</string>
     <string name="mode_repeat_limited">repeat every %1$d min, %2$d alerts max</string>
-    <string name="permission_tip">Redmi / HyperOS checklist: ① Settings → Apps → Bellgram → Autostart = ON; ② Battery saver → No restrictions; ③ Notifications → allow lock screen &amp; floating notifications; ④ allow the "Receive SMS" permission. Without these MIUI may kill the app in the background and the alarm will not ring.</string>
 
     <!-- 二次开发新增：提醒方式与重复策略 -->
     <string name="pref_category_reminder">RULES &amp; REMINDER</string>

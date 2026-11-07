@@ -6,6 +6,22 @@
   contact_input_layout / contact_value / message_value / trigger / clear 等。
   modified: v4.4.0 起 clear 按钮从首页移除，「清除配置」迁入应用设置页并加二次确认；
   两个文字入口统一限制单行，避免长文案折行把这一行按钮撑成两行。
+  modified: v4.5.2 首屏收成「一页、不用下拉」：
+    【删除】标题区简介 TextView（R.id.tagline / @string/app_tagline）
+           去向：这段「收到含关键词的短信时……」不再展示；应用用途由引导页与
+           README 说明，两份 strings.xml 里的对应文案一并移除，不留死资源。
+    【删除】底部「红米 / HyperOS 必做四步」提示（R.id.permission_tip）
+           去向：权限体检的完整入口仍在设置页 permission_check_key；首页的
+           「点一下直接体检」能力迁到状态条，见 MainActivity#bindStatusPermissionEntry。
+    【删除】最下方品牌图标（R.id.brand_icon）：纯装饰，删掉后不再需要底部留白。
+    【修改】压缩 padding / margin 与图标、按钮尺寸，常态内容高度小于可视区，
+           整页一屏显示；标题行去掉只剩一个控件的内层 LinearLayout。
+    【保留】外层 ScrollView 只作软键盘弹出与极小屏幕的兜底 ——
+           否则输入关键词时键盘会盖住「启用提醒」按钮，反而更不好用。
+           常态下不出现滚动：scrollbars=none + overScrollMode=never。
+  功能控件 id 与类型一个未动：ui_layout / user_message_layout / status_text /
+  contact_input_layout / contact_value / message_value / trigger /
+  practice_rule / reminder_settings / headline。
 -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -17,11 +33,13 @@
     android:background="@color/surface_bg"
     tools:context=".MainActivity">
 
+    <!-- modified: v4.5.2 保留滚动容器仅为键盘/小屏兜底，常态一屏不滚动 -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
-        android:scrollbars="none">
+        android:scrollbars="none"
+        android:overScrollMode="never">
 
         <!-- 根容器先拿焦点，避免横竖屏切换时输入法自动弹出 -->
         <LinearLayout
@@ -32,11 +50,11 @@
             android:focusableInTouchMode="true"
             android:descendantFocusability="beforeDescendants"
             android:paddingStart="20dp"
-            android:paddingTop="20dp"
+            android:paddingTop="12dp"
             android:paddingEnd="20dp"
-            android:paddingBottom="28dp">
+            android:paddingBottom="12dp">
 
-            <!-- ===== 标题区：品牌图标 + 应用名（modified） ===== -->
+            <!-- ===== 标题区：品牌图标 + 应用名（modified: v4.5.2 去掉简介、缩小图标） ===== -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -44,57 +62,43 @@
                 android:orientation="horizontal">
 
                 <ImageView
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
                     android:contentDescription="@string/logo"
                     android:src="@drawable/app_logo" />
 
-                <LinearLayout
+                <!-- modified: v4.5.2 【删除】原内层 LinearLayout 与 R.id.tagline；
+                     只剩 headline 一个控件，直接平铺即可，标题行由约 71dp 降到 40dp。 -->
+                <TextView
+                    android:id="@+id/headline"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="12dp"
                     android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/headline"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="sans-serif-medium"
-                        android:letterSpacing="0.01"
-                        android:text="@string/app_name"
-                        android:textColor="@color/text_primary"
-                        android:textSize="25sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tagline"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:lineSpacingExtra="2dp"
-                        android:text="@string/app_tagline"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp" />
-                </LinearLayout>
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.01"
+                    android:text="@string/app_name"
+                    android:textColor="@color/text_primary"
+                    android:textSize="25sp"
+                    android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- modified: 标题下的强调色短线 -->
+            <!-- modified: 标题下的强调色短线（v4.5.2 间距 14dp -> 10dp） -->
             <View
                 android:layout_width="44dp"
                 android:layout_height="3dp"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="10dp"
                 android:background="@drawable/bg_accent_line" />
 
-            <!-- ===== 规则卡片 ===== -->
+            <!-- ===== 规则卡片（modified: v4.5.2 外边距 18->12、内边距 18->12） ===== -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
+                android:layout_marginTop="12dp"
                 android:background="@drawable/bg_card"
                 android:elevation="2dp"
                 android:orientation="vertical"
-                android:padding="18dp">
+                android:padding="12dp">
 
                 <TextView
                     android:id="@+id/contact_name"
@@ -108,7 +112,7 @@
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="4dp"
                     android:hint="@string/contact_value"
                     android:textColorHint="@color/text_secondary"
                     app:boxCornerRadiusBottomEnd="12dp"
@@ -140,14 +144,14 @@
                     style="@style/SectionTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="20dp"
+                    android:layout_marginTop="10dp"
                     android:text="@string/message_string" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="4dp"
                     android:hint="@string/message_hint"
                     android:textColorHint="@color/text_secondary"
                     app:boxCornerRadiusBottomEnd="12dp"
@@ -175,29 +179,31 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- ===== 状态条：当前是否在监听 ===== -->
+            <!-- ===== 状态条：当前是否在监听 =====
+                 modified: v4.5.2 外边距 16->10、内边距 14->10；
+                 同时接管原底部清单的「点击直达权限体检」能力（见 MainActivity）。 -->
             <TextView
                 android:id="@+id/status_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="10dp"
                 android:background="@drawable/bg_status_idle"
                 android:lineSpacingExtra="2dp"
-                android:paddingStart="16dp"
-                android:paddingTop="14dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="14dp"
+                android:paddingStart="14dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp"
                 android:text="@string/status_idle"
                 android:textColor="@color/status_idle_text"
                 android:textSize="14sp" />
 
-            <!-- ===== 操作按钮 ===== -->
+            <!-- ===== 操作按钮（modified: v4.5.2 外边距 18->12、高度 56->52） ===== -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/trigger"
                 style="@style/PrimaryButtonStyle"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="18dp"
+                android:layout_height="52dp"
+                android:layout_marginTop="12dp"
                 android:text="@string/trigger_button"
                 app:icon="@drawable/ic_bell_24"
                 app:iconGravity="textStart"
@@ -214,7 +220,6 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
                 android:baselineAligned="false"
                 android:orientation="horizontal">
 
@@ -224,7 +229,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:minHeight="40dp"
+                    android:minHeight="38dp"
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:text="@string/practice_button"
@@ -239,7 +244,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:minHeight="40dp"
+                    android:minHeight="38dp"
                     android:maxLines="1"
                     android:ellipsize="end"
                     android:text="@string/reminder_settings_button"
@@ -249,27 +254,14 @@
                     app:iconTint="@color/accent_color" />
             </LinearLayout>
 
-            <!-- ===== 使用提示 ===== -->
-            <TextView
-                android:id="@+id/permission_tip"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:lineSpacingExtra="3dp"
-                android:text="@string/permission_tip"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
+            <!-- modified: v4.5.2 【删除】底部「红米 / HyperOS 必做四步」提示
+                 （R.id.permission_tip / @string/permission_tip）。
+                 去向：权限体检完整入口在设置页 permission_check_key；
+                 首页「点一下就体检」的快捷能力改挂 status_text，
+                 见 MainActivity#bindStatusPermissionEntry，功能本身未删。 -->
 
-            <!-- 品牌图标：体积很小，不会造成内存压力 -->
-            <ImageView
-                android:id="@+id/brand_icon"
-                android:layout_width="72dp"
-                android:layout_height="72dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="18dp"
-                android:alpha="0.9"
-                android:contentDescription="@string/logo"
-                android:src="@drawable/app_logo" />
+            <!-- modified: v4.5.2 【删除】最下方装饰性品牌图标（R.id.brand_icon）。
+                 去向：纯装饰、无点击逻辑，整块移除，不再需要底部 72dp + 18dp 留白。 -->
         </LinearLayout>
     </ScrollView>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

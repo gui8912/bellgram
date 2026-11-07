@@ -70,8 +70,11 @@ android {
         //           mediaPlayback 前台服务，被 Android 12+ 启动限制 / 14+ 类型校验 /
         //           通知权限拦截后静默失败；改为设置页原地播放（AlertPreviewPlayer），
         //           失败原因直接回显。versionCode 27 -> 28；固定签名不变
-        versionCode 28 // modified: v4.5.1 发布
-        versionName "4.5.1" // modified: v4.5.1 发布
+        // modified: v4.5.2 = 首屏收成一页：删应用简介、红米四步提示、底部装饰图标，
+        //           压缩间距；权限体检快捷入口由底部清单迁到状态条。
+        //           versionCode 28 -> 29；固定签名不变，可直接覆盖升级
+        versionCode 29 // modified: v4.5.2 发布
+        versionName "4.5.2" // modified: v4.5.2 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

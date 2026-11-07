@@ -22,7 +22,11 @@
 
     <string name="app_version">应用版本</string>
     <string name="app_version_key">app_version_key</string>
-    <string name="current_app_version">4.5.1</string> <!-- modified: 同步界面版本号 -->
+    <!-- modified: v4.5.2 【删除】app_tagline（首屏简介）与 permission_tip
+         （红米 / HyperOS 必做四步）：对应控件已从 activity_main.xml 移除，
+         权限体检入口改挂 status_text（见 MainActivity#bindStatusPermissionEntry），
+         应用用途由引导页与 README 说明。此处不留死资源。 -->
+    <string name="current_app_version">4.5.2</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -110,7 +114,6 @@
 
 
     <!-- 二次开发新增：重做界面所需文案 -->
-    <string name="app_tagline">收到含关键词的短信时，用最大音量的闹铃提醒你——提示音太小、容易错过的重要信息，不会再漏掉。</string>
     <string name="status_idle">尚未监听 · 填写至少一个关键词后点击「启用提醒」</string>
     <string name="status_listening">监听中 · 关键词：%1$s</string>
     <!-- 二次开发新增：状态条上的提醒策略摘要 -->
@@ -121,7 +124,6 @@
     <string name="mode_vibrate_off">不震动</string>
     <string name="mode_repeat_unlimited">每 %1$d 分钟提醒一次，直到我停止</string>
     <string name="mode_repeat_limited">每 %1$d 分钟提醒一次，最多 %2$d 次</string>
-    <string name="permission_tip">红米 / HyperOS 必做四步：① 设置 → 应用设置 → 应用管理 → 铃达 → 自启动 = 开；② 省电策略 = 无限制；③ 通知管理 → 允许锁屏通知与悬浮通知；④ 权限 → 允许「接收短信」。缺任一项，MIUI 都可能在后台杀掉进程，闹铃不会响。</string>
 
     <!-- 二次开发新增：提醒方式与重复策略 -->
     <string name="pref_category_reminder">规则与提醒方式</string>

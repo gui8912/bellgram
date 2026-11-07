@@ -59,6 +59,8 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_DOCUMENT;
  *   <li>通讯录游标使用 try-with-resources 关闭，修复 Cursor 泄漏；</li>
  *   <li>权限回调时从界面重新读取输入，避免字段为 null 导致 NPE；</li>
  *   <li>Handler / 延迟弹窗做生命周期校验，避免界面销毁后回调崩溃。</li>
+ *   <li>modified: v4.5.2 首屏删掉简介、红米四步提示与底部装饰图标后，
+ *       原「点底部清单打开权限体检」的入口迁到 status_text，功能不丢。</li>
  * </ul>
  */
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, TextWatcher {
@@ -150,7 +152,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         EdgeToEdgeHelper.apply(this, R.id.user_message_layout);
         // modified: targetSdk 33+ 的 POST_NOTIFICATIONS 属于运行时权限，不申请则通知完全发不出去
         ensureNotificationPermission();
-        bindPermissionChecklist(); // modified: 底部清单可点，直达权限体检
+        bindStatusPermissionEntry(); // modified: v4.5.2 原底部清单已删，点击能力迁到状态条
 
         appConfig = AppConfig.get(this); // modified: 用实例替代原来的 static SharedPreferences
 
@@ -281,12 +283,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         NotificationHelper.ensureChannels(this);
     }
 
-    /** 底部「权限 / 保活清单」可点击，直接打开权限体检对话框。 */
-    private void bindPermissionChecklist() { // modified: 新增
-        View tip = findViewById(R.id.permission_tip);
-        if (tip != null) {
-            tip.setOnClickListener(view -> PermissionChecker.showDialog(MainActivity.this));
-            tip.setClickable(true);
+    /**
+     * modified: v4.5.2 【修改】原 bindPermissionChecklist() 绑定的是底部
+     * 「红米 / HyperOS 必做四步」TextView（R.id.permission_tip），该控件已按
+     * 首屏精简要求删除，故改绑状态条 R.id.status_text。
+     *
+     * <p>不直接删掉这个方法，是为了保住「在首页点一下就能做权限体检」这条最短路径：
+     * 状态条本来就会显示「还有 N 项权限未授予」警示，点它进体检最自然。
+     * 完整的权限体检入口仍在设置页 permission_check_key，此处只是快捷方式。
+     * updateStatusUi() 只改文字/颜色/背景，不会覆盖这里注册的点击监听。
+     *
+     * <p>【删除】原先的 tip.setClickable(true)：setOnClickListener 内部已会把
+     * View 置为 clickable，这行是冗余操作。
+     */
+    private void bindStatusPermissionEntry() { // modified: v4.5.2 由 bindPermissionChecklist 改名
+        View status = findViewById(R.id.status_text);
+        if (status != null) {
+            status.setOnClickListener(view -> PermissionChecker.showDialog(MainActivity.this));
         }
     }
 
