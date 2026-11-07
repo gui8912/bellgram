@@ -111,12 +111,21 @@
             </intent-filter>
         </receiver>
 
+        <!-- 【新增 v4.5.8 注释 / 修改 priority】
+             SMS_RECEIVED 是**有序广播**：默认短信应用、手机管家、骚扰拦截类软件
+             都可能注册更高优先级的接收器并调用 abortBroadcast() 把它截断。
+             一旦被截断，本应用连「收到短信广播」这一步都走不到，
+             表现就是「短信应用明明弹了通知，本应用却一点动静都没有」。
+             999 是普通应用可用的最高合规优先级（IntentFilter.SYSTEM_HIGH_PRIORITY=1000
+             保留给系统），能排在所有默认优先级(0)接收器之前。
+             本接收器**从不调用 abortBroadcast()**，所以不会妨碍短信应用收短信、
+             弹它自己的通知；用户是否打开短信应用查看，与本链路完全无关。 -->
         <receiver
             android:name=".SMSReceiver"
             android:enabled="true"
             android:exported="true"
             android:permission="android.permission.BROADCAST_SMS">
-            <intent-filter>
+            <intent-filter android:priority="999">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>

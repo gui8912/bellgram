@@ -107,8 +107,15 @@ android {
         //           另外把「最近命中记录」入口直接接到完整诊断，诊断里新增
         //           当前规则与权限快照，一张截图即可判断广播未投递还是规则不匹配。
         //           versionCode 33 -> 34；固定签名不变，可直接覆盖升级
-        versionCode 34 // modified: v4.5.7 发布
-        versionName "4.5.7" // modified: v4.5.7 发布
+        // modified: v4.5.8 = 加固「不管短信应用是否弹窗/用户是否查看，本应用都要响」：
+        //           SMS_RECEIVED 是有序广播，给 SMSReceiver 的 intent-filter 加
+        //           priority=999（普通应用最高合规值），防止被默认短信应用/安全软件
+        //           abort 截断；本接收器不调用 abortBroadcast，不影响短信应用。
+        //           通知提至 PRIORITY_MAX + 锁屏公开可见，避免亮屏时横幅被压下去；
+        //           诊断第一行补屏幕亮灭/锁屏状态，区分「广播没到」与「全屏页被系统降级」。
+        //           versionCode 34 -> 35；固定签名不变，可直接覆盖升级
+        versionCode 35 // modified: v4.5.8 发布
+        versionName "4.5.8" // modified: v4.5.8 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

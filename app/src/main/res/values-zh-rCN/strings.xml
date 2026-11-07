@@ -31,7 +31,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.5.7</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.8</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>

@@ -218,10 +218,18 @@ public final class NotificationHelper {
 
         // 注意：刻意不使用 setOnlyAlertOnce(true)。每一轮重复提醒都需要重新出声，
         // 加上该标志会导致第二轮通知静默。
+        // 【新增 v4.5.8 注释 / 修改优先级与可见性】
+        // 本应用的提醒是否发出，与短信应用有没有弹窗 / 有没有发自己的信息通知
+        // 完全无关：这里没有任何「已存在其它通知就跳过」的判断，通知 ID 也是本应用独占。
+        // 但亮屏且用户正在用短信应用时，系统不会拉起全屏页，只给一条悬挂通知(HUN)，
+        // 此时若短信应用同时弹通知，低优先级横幅容易被压下去，用户会以为「没响」。
+        // 提到 PRIORITY_MAX + 锁屏公开可见，让本应用的横幅在这种竞争下仍排在最前；
+        // 声音来自独立的高重要性渠道(CHANNEL_ID_AUDIBLE)，不受横幅是否被折叠影响。
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, channelId)
                 .setContentTitle(context.getString(R.string.notif_title))
                 .setContentText(context.getString(R.string.notif_text, displayKeyword, displaySender))
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 // modified: 原写法 getColor(resId, null) 第二个参数传 null，
                 // 在部分 ROM / API 23 上 theme.resolveAttribute 会 NPE；改用兼容入口。

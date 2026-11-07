@@ -1,8 +1,10 @@
 package com.saiga.find.messagefinder;
 
+import android.app.KeyguardManager; // 新增 v4.5.8
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.PowerManager; // 新增 v4.5.8
 import android.provider.Telephony;
 import android.telephony.SmsMessage;
 import android.text.TextUtils;
@@ -66,7 +68,13 @@ public class SMSReceiver extends BroadcastReceiver {
         // 【新增 v4.5.6】先记「广播到达」。诊断日志里没有这一行，就说明系统压根没把
         // SMS_RECEIVED 投递给本应用（短信权限未授予 / ROM 后台管控 / 组件被禁用），
         // 而不是关键词或号码规则写错。以下每个静默 return 都补一条可查看的原因。
-        SmsTrace.add(context, "收到短信广播", "action=" + String.valueOf(intent.getAction()));
+        // 【修改 v4.5.8】第一行诊断补上屏幕/锁屏状态：用户「有没有打开短信应用
+        // 查看短信」本质上就是「亮屏且正在交互」，这种状态下系统不会拉起全屏告警页，
+        // 只显示悬挂通知。有了这一行，一张截图就能分清「广播没到」和
+        // 「广播到了但全屏页被系统降级成横幅」。
+        SmsTrace.add(context, "收到短信广播",
+                "action=" + String.valueOf(intent.getAction())
+                        + "；" + deviceState(context));
         AppConfig config = AppConfig.get(context);
         // modified: 借鉴 SmsForwarder「转发功能总开关」，关闭后所有短信直接忽略
         if (!config.isAlertEnabled()) { // modified
@@ -168,6 +176,29 @@ public class SMSReceiver extends BroadcastReceiver {
 
         // 记录命中日志，便于用户在设置页自查规则是否生效（旁路，内部已做异常隔离）
         HitLog.add(context, sender, matchedKeyword, body);
+    }
+
+    /**
+     * 【新增 v4.5.8】广播到达时的屏幕 / 锁屏状态，写进诊断第一行。
+     *
+     * <p>「用户有没有打开短信应用查看短信」在技术上都对应「亮屏且正在交互」：
+     * 这种状态下 Android 不会拉起全屏告警页，只显示悬挂通知（HUN），
+     * 若短信应用同时弹了通知，横幅容易被压下去，用户会误以为「本应用没提醒」。
+     * 把状态落到日志，就能把「广播没到」「全屏页被系统降级」「通知被吞」分开。
+     * 纯只读，异常一律兜底，绝不影响提醒链路。
+     */
+    private static String deviceState(Context context) { // 新增 v4.5.8
+        try {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            boolean interactive = pm != null && pm.isInteractive(); // minSdk 23 > API 20
+            KeyguardManager km =
+                    (KeyguardManager) context.getSystemService(Context.KEYGUARD_SERVICE);
+            boolean locked = km != null && km.isKeyguardLocked();
+            return "屏幕=" + (interactive ? "亮" : "灭")
+                    + "；锁屏=" + (locked ? "是" : "否");
+        } catch (Exception e) {
+            return "屏幕状态未知";
+        }
     }
 
     /**
