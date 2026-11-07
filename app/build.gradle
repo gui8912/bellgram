@@ -54,11 +54,13 @@ android {
 
     defaultConfig {
         applicationId "com.saiga.find.messagefinder"
-        // modified: v4.5.3 【修改】minSdk 23 -> 36（Android 16），按用户要求
-        // 「只适配最新版本的安卓系统」。
-        // 风险：非 Android 16 设备将无法安装（含覆盖安装），系统装包时会校验 minSdk。
-        // 若需回退，把这一行改回 23 重新出包即可，配置数据不受影响。
-        minSdk 36
+        // modified: v4.5.4 【修改】minSdk 36 -> 23，恢复 v4.5.2 及以前的兼容范围。
+        // 原因：v4.5.3 按「只适配最新安卓」提到 36 后，非 Android 16 设备
+        // 在解析阶段即被系统拒绝，安装提示「解析软件包时出现问题」，实测装不上。
+        // 复核确认：抬高 minSdk 对瘦身没有任何贡献（v4.5.3 的体积收益全部来自
+        // 删除内置铃声 + 显式压缩 DEX），反而触发 AGP 的 DEX 不压缩默认行为。
+        // 故降回 23（Android 6.0+），功能、配置格式、固定签名均不变，可直接覆盖升级。
+        minSdk 23
         // modified: 29 -> 36（本轮核心合规项，理由与配套架构改造见文件头与报告 §5.1）
         targetSdk 36
         // modified: v4.3.0 = 新图标、双主题、音量档位与提醒参数可配，versionCode 23 -> 24
@@ -81,8 +83,12 @@ android {
         //           彻底移除 res/raw/priority_ringtone.mp3 与 raw/keep.xml，
         //           新增 AlertRingtone 统一改取系统闹钟音（原 15 秒裁剪方案已弃用）。
         //           versionCode 29 -> 30；固定签名不变，可直接覆盖升级
-        versionCode 30 // modified: v4.5.3 发布
-        versionName "4.5.3" // modified: v4.5.3 发布
+        // modified: v4.5.4 = 修复「解析软件包时出现问题」：minSdk 36 -> 23。
+        //           v4.5.3 仅 Android 16 可装，旧设备解析阶段即被拒；实测确认
+        //           抬高 minSdk 未带来任何体积收益，降回不影响 6.53 MB 瘦身成果。
+        //           versionCode 30 -> 31；固定签名不变，可直接覆盖升级
+        versionCode 31 // modified: v4.5.4 发布
+        versionName "4.5.4" // modified: v4.5.4 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -113,6 +119,9 @@ android {
     }
 
     // modified: v4.5.3 【新增】强制压缩 DEX，抵消 minSdk 36 带来的 APK 膨胀。
+    // v4.5.4 【保留】minSdk 已降回 23，此时 AGP 本来就默认压缩 DEX；仍显式
+    // 声明是为了把「直接分发的 APK 必须压缩 DEX」固定成契约，将来若再抬高
+    // minSdk（>= 28）也不会静默把包撑大 6 MB。
     // AGP 4.2 起，minSdk >= 28 时默认把 DEX「未压缩」打进 APK：装到设备上更小、
     // 启动更快，但直接分发的 APK 文件会明显变大（实测三个 DEX 由 4,463,635 B
     // 压缩态变成 10,598,512 B 裸存储，比 v4.5.2 反增 6.13 MB，把删铃声省下的
