@@ -32,8 +32,14 @@ package com.saiga.find.messagefinder;
 //   同时修掉两处交互缺陷：自定义数值输入非法时对话框被系统关掉、页面销毁时自绘弹窗窗口泄漏；
 //   并新增「试响一次」入口，让用户改完设置能立刻验证。
 
+import android.app.Activity; // 新增 v4.6.0：RESULT_OK
 import android.content.Context; // modified
+import android.content.Intent; // 新增 v4.6.0：系统铃声选择器 / 文件选择器
+import android.media.RingtoneManager; // 新增 v4.6.0
+import android.net.Uri; // 新增 v4.6.0
 import android.os.Bundle;
+import android.os.Handler; // 新增 v4.6.0：导入音频后回主线程刷新
+import android.os.Looper; // 新增 v4.6.0
 import android.text.InputType; // modified
 import android.text.TextUtils;
 import android.util.Log;
@@ -107,6 +113,10 @@ public class SettingsActivity extends AppCompatActivity {
          */
         private AlertPreviewPlayer previewPlayer;
 
+        /** 【新增 v4.6.0】两个系统选择器的 requestCode，互不冲突。 */
+        private static final int REQ_RINGTONE_PICKER = 1001; // 新增
+        private static final int REQ_AUDIO_FILE = 1002; // 新增
+
         /** modified: v4.5.0 统一登记并显示对话框，替代散落的 .show()。 */
         private void showTracked(AlertDialog dialog) {
             activeDialog = dialog;
@@ -176,6 +186,213 @@ public class SettingsActivity extends AppCompatActivity {
             Toast.makeText(context, message, Toast.LENGTH_LONG).show();
         }
 
+        // ==================== 【新增 v4.6.0】自定义提醒铃声 ====================
+
+        /**
+         * 「提醒铃声」入口。刻意用普通 Preference + 自绘选项列表，不用框架对话框：
+         * v4.4.0 已实测 AppCompat 的 AlertController 在 setMessage 与列表同时存在时
+         * 只渲染提示文字、不渲染选项，所以说明文字单独放在「关于自定义铃声」里。
+         */
+        private void bindCustomRingtonePreference() { // 新增 v4.6.0
+            Preference pref = findPreference(getString(R.string.custom_ringtone_key)); // 新增
+            if (pref == null) { // 新增
+                return; // 新增
+            } // 新增
+            pref.setOnPreferenceClickListener(preference -> { // 新增
+                Context context = getContext(); // 新增
+                if (context == null) { // 新增
+                    return true; // 新增
+                } // 新增
+                CharSequence[] items = new CharSequence[]{ // 新增：固定 5 项，which 恒定
+                        getString(R.string.custom_ringtone_choice_system), // 新增
+                        getString(R.string.custom_ringtone_choice_library), // 新增
+                        getString(R.string.custom_ringtone_choice_file), // 新增
+                        getString(R.string.custom_ringtone_choice_preview), // 新增
+                        getString(R.string.custom_ringtone_choice_note) // 新增
+                }; // 新增
+                showTracked(new MaterialAlertDialogBuilder(context) // 新增
+                        .setTitle(R.string.custom_ringtone_title) // 新增
+                        .setItems(items, (dialog, which) -> // 新增
+                                handleRingtoneChoice(context, which)) // 新增
+                        .setNegativeButton(android.R.string.cancel, null) // 新增
+                        .create()); // 新增
+                return true; // 新增
+            }); // 新增
+        } // 新增
+
+        /** 分发 5 个固定选项。说明对话框延后一帧，避免与正在 dismiss 的选项框叠加。 */
+        private void handleRingtoneChoice(Context context, int which) { // 新增 v4.6.0
+            switch (which) { // 新增
+                case 0: // 新增：跟随系统
+                    applySystemDefault(context); // 新增
+                    break; // 新增
+                case 1: // 新增：系统铃声库
+                    openRingtonePicker(context); // 新增
+                    break; // 新增
+                case 2: // 新增：手机文件
+                    openAudioFilePicker(context); // 新增
+                    break; // 新增
+                case 3: // 新增：试听当前
+                    if (previewPlayer != null && previewPlayer.isPlaying()) { // 新增
+                        Toast.makeText(context, R.string.preview_alert_playing, // 新增
+                                Toast.LENGTH_LONG).show(); // 新增
+                    } else { // 新增
+                        startPreview(context); // 新增
+                    } // 新增
+                    break; // 新增
+                case 4: // 新增：说明
+                    new Handler(Looper.getMainLooper()).post(() -> { // 新增
+                        Context live = getContext(); // 新增
+                        if (live == null || !isAdded()) { // 新增
+                            return; // 新增
+                        } // 新增
+                        showTracked(new MaterialAlertDialogBuilder(live) // 新增
+                                .setTitle(R.string.custom_ringtone_choice_note) // 新增
+                                .setMessage(R.string.custom_ringtone_note) // 新增
+                                .setPositiveButton(android.R.string.ok, null) // 新增
+                                .create()); // 新增
+                    }); // 新增
+                    break; // 新增
+                default: // 新增
+                    break; // 新增
+            } // 新增
+        } // 新增
+
+        /** 系统铃声库选择器。选「默认」时返回的是系统引用 Uri，按恢复默认处理。 */
+        private void openRingtonePicker(Context context) { // 新增 v4.6.0
+            Intent intent = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER); // 新增
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, // 新增
+                    RingtoneManager.TYPE_ALARM); // 新增
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true); // 新增
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false); // 新增
+            intent.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, // 新增
+                    getString(R.string.custom_ringtone_title)); // 新增
+            Uri existing = AlertRingtone.systemUri(context); // 新增
+            if (existing != null) { // 新增
+                intent.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, existing); // 新增
+            } // 新增
+            try { // 新增
+                startActivityForResult(intent, REQ_RINGTONE_PICKER); // 新增
+            } catch (Exception e) { // 新增
+                Log.w(TAG, "ringtone picker unavailable", e); // 新增
+                Toast.makeText(context, R.string.custom_ringtone_picker_missing, // 新增
+                        Toast.LENGTH_LONG).show(); // 新增
+            } // 新增
+        } // 新增
+
+        /**
+         * 手机文件选择器。用 */* + EXTRA_MIME_TYPES 而不是 audio/*：
+         * 部分国产 ROM 把 .ogg 报成 application/ogg，audio/* 会把用户刚裁好的
+         * 卡农 Ogg 直接过滤掉。非音频文件由导入时的 MediaPlayer 校验挡住。
+         */
+        private void openAudioFilePicker(Context context) { // 新增 v4.6.0
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT); // 新增
+            intent.addCategory(Intent.CATEGORY_OPENABLE); // 新增
+            intent.setType("*/*"); // 新增
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{ // 新增
+                    "audio/*", "application/ogg", "audio/ogg", // 新增
+                    "application/octet-stream" // 新增
+            }); // 新增
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION); // 新增
+            try { // 新增
+                startActivityForResult(intent, REQ_AUDIO_FILE); // 新增
+            } catch (Exception e) { // 新增
+                Log.w(TAG, "document picker unavailable", e); // 新增
+                Toast.makeText(context, R.string.custom_ringtone_file_picker_missing, // 新增
+                        Toast.LENGTH_LONG).show(); // 新增
+            } // 新增
+        } // 新增
+
+        @Override
+        public void onActivityResult(int requestCode, int resultCode, // 新增 v4.6.0
+                                     @Nullable Intent data) { // 新增
+            super.onActivityResult(requestCode, resultCode, data); // 新增
+            Context context = getContext(); // 新增
+            if (context == null || resultCode != Activity.RESULT_OK) { // 新增
+                return; // 新增
+            } // 新增
+            if (requestCode == REQ_RINGTONE_PICKER) { // 新增
+                Uri picked = data == null ? null // 新增
+                        : data.getParcelableExtra( // 新增
+                                RingtoneManager.EXTRA_RINGTONE_PICKED_URI); // 新增
+                if (CustomRingtone.isSystemDefaultUri(context, picked)) { // 新增
+                    applySystemDefault(context); // 新增
+                } else { // 新增
+                    importRingtoneAsync(context, picked); // 新增
+                } // 新增
+            } else if (requestCode == REQ_AUDIO_FILE && data != null) { // 新增
+                Uri picked = data.getData(); // 新增
+                if (picked != null) { // 新增
+                    importRingtoneAsync(context, picked); // 新增
+                } // 新增
+            } // 新增
+        } // 新增
+
+        /** 删除自定义副本，恢复跟随系统闹钟音。 */
+        private void applySystemDefault(Context context) { // 新增 v4.6.0
+            stopPreview(); // 新增：正在试听旧铃声时换源必须先停
+            CustomRingtone.clearCustom(context); // 新增
+            refreshActiveConfiguration(); // 新增
+            Toast.makeText(context, R.string.custom_ringtone_restored, // 新增
+                    Toast.LENGTH_SHORT).show(); // 新增
+            Context app = context.getApplicationContext(); // 新增
+            SmsTrace.add(app, "铃声来源切换", "恢复跟随系统闹钟音"); // 新增
+        } // 新增
+
+        /**
+         * 复制音频 + 解码校验放到后台线程：30 MB 的流式复制和同步 prepare 都不能压在
+         * UI 线程上。失败只提示并保留原铃声，绝不把半截文件当成新铃声。
+         */
+        private void importRingtoneAsync(Context context, Uri uri) { // 新增 v4.6.0
+            if (uri == null) { // 新增
+                Toast.makeText(context, context.getString( // 新增
+                        R.string.custom_ringtone_failed, // 新增
+                        context.getString(R.string.custom_ringtone_error_read)), // 新增
+                        Toast.LENGTH_LONG).show(); // 新增
+                return; // 新增
+            } // 新增
+            final Context app = context.getApplicationContext(); // 新增
+            stopPreview(); // 新增
+            final String label = CustomRingtone.displayName(app, uri); // 新增
+            Toast.makeText(context, R.string.custom_ringtone_importing, // 新增
+                    Toast.LENGTH_SHORT).show(); // 新增
+            new Thread(() -> { // 新增
+                final int code = CustomRingtone.importFromUri(app, uri, label); // 新增
+                new Handler(Looper.getMainLooper()).post(() -> { // 新增
+                    Context live = getContext(); // 新增
+                    if (live == null || !isAdded()) { // 新增
+                        return; // 新增
+                    } // 新增
+                    if (code == CustomRingtone.ERR_NONE) { // 新增
+                        refreshActiveConfiguration(); // 新增
+                        Toast.makeText(live, R.string.custom_ringtone_saved, // 新增
+                                Toast.LENGTH_LONG).show(); // 新增
+                        SmsTrace.add(app, "铃声来源切换", "自定义：" + label); // 新增
+                    } else { // 新增
+                        Toast.makeText(live, live.getString( // 新增
+                                R.string.custom_ringtone_failed, // 新增
+                                ringtoneErrorText(live, code)), // 新增
+                                Toast.LENGTH_LONG).show(); // 新增
+                    } // 新增
+                }); // 新增
+            }, "bellgram-import-tone").start(); // 新增
+        } // 新增
+
+        /** 错误码 -> 用户能看懂的一句话。 */
+        private String ringtoneErrorText(Context context, int code) { // 新增 v4.6.0
+            switch (code) { // 新增
+                case CustomRingtone.ERR_TOO_LARGE: // 新增
+                    return context.getString(R.string.custom_ringtone_error_large); // 新增
+                case CustomRingtone.ERR_UNPLAYABLE: // 新增
+                    return context.getString(R.string.custom_ringtone_error_unplayable); // 新增
+                case CustomRingtone.ERR_WRITE: // 新增
+                    return context.getString(R.string.custom_ringtone_error_write); // 新增
+                case CustomRingtone.ERR_READ: // 新增
+                default: // 新增
+                    return context.getString(R.string.custom_ringtone_error_read); // 新增
+            } // 新增
+        } // 新增
+
         @Override
         public void onStop() { // modified: v4.5.1 页面不可见就停，避免切走后还在响
             stopPreview();
@@ -196,6 +413,7 @@ public class SettingsActivity extends AppCompatActivity {
             bindListSummaries();
             bindInteractivePreferences(); // modified
             bindListPreferenceDialogs(); // modified: v4.4.0 显式接管全部下拉设置项
+            bindCustomRingtonePreference(); // 新增 v4.6.0：自定义提醒铃声入口
 
             Preference autoSuggestionPref = findPreference(getString(R.string.auto_suggestion_key));
             if (autoSuggestionPref != null) {
@@ -776,6 +994,14 @@ public class SettingsActivity extends AppCompatActivity {
                         ? context.getString(R.string.sms_trace_summary)
                         : context.getString(R.string.sms_trace_last_skip, lastSkip));
             }
+            // 【新增 v4.6.0】摘要直接显示当前生效的铃声，用户不用点进去猜
+            Preference tonePref = findPreference(getString(R.string.custom_ringtone_key)); // 新增
+            if (tonePref != null) { // 新增
+                tonePref.setSummary(CustomRingtone.hasCustom(context) // 新增
+                        ? context.getString(R.string.custom_ringtone_summary_custom, // 新增
+                                CustomRingtone.label(context)) // 新增
+                        : context.getString(R.string.custom_ringtone_summary_default)); // 新增
+            } // 新增
         }
 
         private void bindActiveConfiguration(Preference preference, Context context) {

@@ -22,6 +22,10 @@ package com.saiga.find.messagefinder;
 //   （AlertRingtone.alarmUri），不再读 res/raw/priority_ringtone.mp3。
 //   这样才能保证「试听到的」就是「真实会响的」：用户在系统「声音 / 闹钟」里
 //   换成自己喜欢的钢琴曲后，试响与正式提醒都会跟着变，无需应用内置音频。
+//
+// 【修改】v4.6.0：alarmUri() 扩展为「自定义副本优先、系统闹钟音兜底」。
+//   本类不做任何改动就自然跟随设置页「提醒铃声」的选择 —— 试响仍是验证
+//   自定义铃声是否可用的最直接入口。
 import android.content.Context;
 import android.media.AudioAttributes;
 import android.media.AudioManager;

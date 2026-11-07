@@ -248,12 +248,15 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
                 Log.w(TAG, "alarm playback failed, fallback to notification sound");
                 // 【新增 v4.5.9】降级只会补「一声」通知音，不会再有 60 秒循环。
                 // 必须留可见原因，否则用户只看到「响一声就停」而无从判断。
+                // 【修改 v4.6.0】铃声可能是用户自定义副本，旧文案写死「系统闹钟音」会误导排障
                 SmsTrace.skip(this, "铃声播放失败", // 新增 v4.5.9
-                        "系统闹钟音不可用，本轮已降级为一声通知音；请检查系统声音设置"); // 新增 v4.5.9
+                        "当前铃声=" + AlertRingtone.sourceLabel(this) // 新增 v4.6.0
+                                + "；本轮已降级为一声通知音；请检查铃声文件或系统声音设置"); // 新增 v4.6.0
                 fallbackToNotificationSound();
             } else {
                 SmsTrace.add(this, "播放服务已启动", // 新增 v4.5.9
-                        "循环播放系统闹钟音，本轮时长=" + (ringDurationSec <= 0
+                        "循环播放" + AlertRingtone.sourceLabel(this) + "，本轮时长=" // 新增 v4.6.0
+                                + (ringDurationSec <= 0
                                 ? "直到手动停止" : ringDurationSec + " 秒")); // 新增 v4.5.9
             }
         } else {
@@ -373,6 +376,8 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
         }
         // 【修改】v4.5.3：铃声改为跟随系统闹钟音。先取 Uri，取不到就直接走失败分支，
         // 由调用方 fallbackToNotificationSound() 兜底，避免 MediaPlayer 建到一半再回收。
+        // 【修改 v4.6.0】alarmUri() 现在优先返回用户在设置页导入的自定义副本，
+        // 没有自定义时才退回系统兜底链；本方法一行都不用改就能跟随。
         Uri ringtoneUri = AlertRingtone.alarmUri(this);
         if (ringtoneUri == null) {
             Log.e(TAG, "no usable system alarm sound, fallback to notification sound");
@@ -406,6 +411,7 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
                     restoreAlarmVolume(); // modified
                     SmsTrace.skip(SMSForegroundService.this, "铃声播放中断", // 新增 v4.5.9
                             "MediaPlayer what=" + what + ", extra=" + extra // 新增 v4.5.9
+                                    + "；当前铃声=" + AlertRingtone.sourceLabel(SMSForegroundService.this) // 新增 v4.6.0
                                     + "；本轮已降级为一声通知音"); // 新增 v4.5.9
                     fallbackToNotificationSound(); // modified
                     return true;

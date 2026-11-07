@@ -12,7 +12,11 @@
      （DialogPreference 里已经提交了框架 DialogFragment），再回调 OnPreferenceClickListener，
      监听器返回 true 拦不住那个已经提交的弹窗 —— v4.4.0 只挂监听器，实际会叠出两个对话框。
      SelfDrawnListPreference 把 onClick() 置空，框架不再提交弹窗，只保留应用自绘的那一个。
-     另新增「试响一次」入口（preview_alert_key），按当前设置播一轮但不建立会话。 -->
+     另新增「试响一次」入口（preview_alert_key），按当前设置播一轮但不建立会话。
+     modified: v4.6.0 —— 新增「提醒铃声」入口（custom_ringtone_key），
+     放在「试响一次」正上方，选完铃声立刻能试听；persistent=false，值由
+     CustomRingtone 保存在应用私有文件与默认 SharedPreferences 里，
+     不走 Preference 自己的持久化，避免把音频 Uri 写进 preference 树。 -->
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:title="@string/settings_button">
@@ -132,6 +136,15 @@
             android:entryValues="@array/volume_key_action_values"
             android:defaultValue="none"
             android:summary="%s" />
+
+        <!-- 【新增 v4.6.0】自定义提醒铃声。放在「试响一次」正上方：
+             选完 / 恢复默认后点一下就能听到效果，不用等真实短信。 -->
+        <Preference
+            android:icon="@drawable/ic_volume_24"
+            android:key="@string/custom_ringtone_key"
+            android:title="@string/custom_ringtone_title"
+            android:summary="@string/custom_ringtone_summary_default"
+            android:persistent="false" />
 
         <!-- modified: v4.5.0 新增「试响一次」。借鉴 SmsForwarder 每个通道都有「测试」按钮、
              reReminder 提供可靠性自检的做法：改完音量 / 时长 / 渐强之后，用户需要立刻

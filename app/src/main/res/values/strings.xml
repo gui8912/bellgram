@@ -30,7 +30,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.5.9</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.6.0</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -247,14 +247,15 @@
     <!-- modified: v4.5.0 preview / self-test, inspired by SmsForwarder channel tests and reReminder reliability check -->
     <string name="preview_alert_key">preview_alert</string>
     <string name="preview_alert_title">Play a test alert</string>
-    <string name="preview_alert_summary">Rings for 8 seconds with the current system alarm sound, volume, crescendo and vibration settings</string>
-    <string name="preview_alert_confirm">This plays for about 8 seconds using your current volume level, crescendo and vibration settings.\n\nIt is a test only: no alert session is created, no repeat is scheduled, and any pending alert is left untouched.\n\nThe test uses the current system alarm volume and does not change your volume settings. The tone follows your system alarm sound: change it in system Settings &gt; Sound &gt; Alarm; the app no longer bundles any audio file.</string>
+    <string name="preview_alert_summary">Rings for 8 seconds with the current alert sound, volume, crescendo and vibration settings</string>
+    <!-- modified: v4.6.0 the tone may now come from the user custom sound -->
+    <string name="preview_alert_confirm">This plays for about 8 seconds using your current volume level, crescendo and vibration settings.\n\nIt is a test only: no alert session is created, no repeat is scheduled, and any pending alert is left untouched.\n\nThe test uses the current system alarm volume and does not change your volume settings. The tone is your custom sound if one was set in Settings &gt; Alert sound, otherwise it follows the system alarm sound. The app does not bundle any audio file.</string>
     <string name="preview_alert_action">Start test</string>
     <string name="preview_alert_playing">A test is already playing, please let it finish</string>
     <string name="preview_alert_started">Test alert playing, stops automatically in about 8 seconds</string>
     <string name="preview_alert_silent">Both ring and vibration are off, so a test would be silent</string>
     <string name="preview_alert_volume_zero">System alarm volume is 0, so the test cannot be heard. Raise the alarm volume in system settings first</string>
-    <string name="preview_alert_failed">Test failed: no usable alarm sound is set on this device. Set an alarm tone in system Settings &gt; Sound, then try again</string>
+    <string name="preview_alert_failed">Test failed: the alert sound could not be loaded. Set a system alarm tone, or pick a custom sound in Settings &gt; Alert sound, then try again</string>
     <string name="custom_value_dialog_title">Enter a custom value</string>
     <string name="custom_duration_message">Single ring duration, 0 to 120 seconds. 0 = until I stop it.</string>
     <string name="custom_interval_message">Repeat interval, 0 to 60 minutes. 0 = do not repeat.</string>
@@ -296,4 +297,29 @@
     <string name="send_test_sms_sender">Local test</string>
     <string name="send_test_sms_keyword">Manual test</string>
     <string name="send_test_sms_body">This is a manual test alert, no SMS was received.</string>
+
+    <!-- [Added v4.6.0] Custom alert sound in Settings.
+         The selected audio is copied into app-private storage: no new permission,
+         no dependency on a temporary content:// Uri grant after reboot. -->
+    <!-- This one is a SharedPreferences key; never translate it -->
+    <string name="custom_ringtone_key">custom_ringtone</string>
+    <string name="custom_ringtone_title">Alert sound</string>
+    <string name="custom_ringtone_summary_default">Follow system alarm sound (default)</string>
+    <string name="custom_ringtone_summary_custom">Custom: %1$s</string>
+    <string name="custom_ringtone_choice_system">Follow system alarm sound (default)</string>
+    <string name="custom_ringtone_choice_library">Pick from system ringtones</string>
+    <string name="custom_ringtone_choice_file">Pick an audio file on this phone</string>
+    <string name="custom_ringtone_choice_preview">Preview current sound</string>
+    <string name="custom_ringtone_choice_note">About custom sounds</string>
+    <string name="custom_ringtone_importing">Importing sound...</string>
+    <string name="custom_ringtone_note">The custom sound is used for the sustained ring and the test alert. The first tone of the banner notification stays the system sound.\n\nSelected audio is copied into this app private storage: no storage permission is needed, and it keeps working after a reboot. Limit 30 MB.</string>
+    <string name="custom_ringtone_saved">Custom sound saved. Tap Test alert to listen.</string>
+    <string name="custom_ringtone_restored">Restored to the system alarm sound</string>
+    <string name="custom_ringtone_failed">Could not import the sound: %1$s</string>
+    <string name="custom_ringtone_error_read">cannot read the selected file</string>
+    <string name="custom_ringtone_error_large">the file is larger than 30 MB</string>
+    <string name="custom_ringtone_error_unplayable">this phone cannot play that file; try MP3, OGG, WAV or M4A</string>
+    <string name="custom_ringtone_error_write">could not save into app storage</string>
+    <string name="custom_ringtone_picker_missing">No ringtone picker is available on this device</string>
+    <string name="custom_ringtone_file_picker_missing">No file picker is available on this device</string>
 </resources>

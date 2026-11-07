@@ -122,8 +122,14 @@ android {
         //           cancel() 一并撤掉兜底，避免会话结束后误弹页。诊断补本轮时长、
         //           全屏权限、告警页拉起、服务启动、播放失败降级等可见记录。
         //           versionCode 35 -> 36；固定签名不变，可直接覆盖升级
-        versionCode 36 // modified: v4.5.9 发布
-        versionName "4.5.9" // modified: v4.5.9 发布
+        // modified: v4.6.0 = 设置页新增「提醒铃声」：可从系统铃声库或手机文件自定义，
+        //           选中的音频复制成应用私有副本（不申请新权限、不依赖临时 URI 授权、
+        //           重启后仍有效），导入时用 MediaPlayer 校验可播放；
+        //           AlertRingtone.alarmUri 改为自定义优先+系统闹钟音兜底，
+        //           持续响铃与试响自动跟随，诊断快照补「当前铃声」。
+        //           versionCode 36 -> 37；固定签名不变，可直接覆盖升级
+        versionCode 37 // modified: v4.6.0 发布
+        versionName "4.6.0" // modified: v4.6.0 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

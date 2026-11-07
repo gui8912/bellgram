@@ -20,12 +20,21 @@ package com.saiga.find.messagefinder;
 // 仍为 null 时返回 null，调用方走既有失败分支：
 //   · SMSForegroundService → fallbackToNotificationSound()（至少响一声通知音）
 //   · AlertPreviewPlayer   → RESULT_FAILED（明确提示去系统里设铃声）
+//
+// 【修改】v4.6.0：设置页新增「提醒铃声」，用户可自定义。alarmUri() 的语义由
+//   「系统闹钟音」扩展为「本应用最终采用的铃声」：自定义副本优先，没有/损坏时
+//   退回原系统兜底链。两个调用点（SMSForegroundService / AlertPreviewPlayer）
+//   一行都不用改就自然跟随；新增 systemUri() 保留原语义供设置页与诊断使用。
+//   私有副本由 CustomRingtone 管理，只存在于用户手机的应用数据里，
+//   APK 仍不打包任何音频，v4.5.3 的版权与体积结论不变。
+//   通知渠道那一声仍由 NotificationHelper 独立取系统闹钟音（渠道声音创建后不可改，
+//   且系统进程无法可靠读取应用私有文件），说明文件里已写明这条边界。
 import android.content.Context;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.util.Log;
 
-/** 铃声来源：统一取系统当前闹钟音，应用内不再打包音频资源。 */
+/** 铃声来源：自定义副本优先，未设置时跟随系统当前闹钟音；应用内不打包音频资源。 */
 public final class AlertRingtone { // 新增 v4.5.3
 
     private static final String TAG = "BellgramRingtone"; // 新增
@@ -34,12 +43,34 @@ public final class AlertRingtone { // 新增 v4.5.3
     } // 新增
 
     /**
-     * 取系统当前闹钟音；不可用时依次退到通知音、来电铃声。
+     * 取「本应用此刻实际会播放」的铃声：自定义副本优先，未设置时跟随系统闹钟音。
+     * 这是短信提醒与试响共用的唯一入口，两处调用点都无需感知自定义逻辑。
      *
      * @return 可直接交给 {@code MediaPlayer.setDataSource(Context, Uri)} 的 Uri；
-     *         没有任何可用系统音时返回 {@code null}。
+     *         自定义文件不可用且系统也没有任何可用音时返回 {@code null}。
      */
-    public static Uri alarmUri(Context context) { // 新增
+    public static Uri alarmUri(Context context) { // 新增 / modified: v4.6.0
+        if (context == null) { // 新增 v4.6.0
+            return null; // 新增 v4.6.0
+        } // 新增 v4.6.0
+        try { // 新增 v4.6.0：自定义数据读失败绝不能掐断提醒主链路
+            Uri custom = CustomRingtone.uri(context); // 新增 v4.6.0
+            if (custom != null) { // 新增 v4.6.0
+                return custom; // 新增 v4.6.0
+            } // 新增 v4.6.0
+        } catch (Exception e) { // 新增 v4.6.0
+            Log.w(TAG, "read custom tone failed, fall back to system alarm", e); // 新增 v4.6.0
+        } // 新增 v4.6.0
+        return systemUri(context); // 新增 v4.6.0
+    } // 新增
+
+    /**
+     * 【新增 v4.6.0】v4.5.3 的原语义：只取系统当前闹钟音，不可用时依次退到通知音、来电铃声。
+     * 设置页「跟随系统」选项、铃声选择器初值、诊断文案用这个，不受自定义副本影响。
+     *
+     * @return 系统铃声 Uri；没有任何可用系统音时返回 {@code null}。
+     */
+    public static Uri systemUri(Context context) { // 新增 v4.6.0（由原 alarmUri 拆出）
         Context app = context.getApplicationContext() != null // 新增
                 ? context.getApplicationContext() : context; // 新增
         Uri uri = getDefault(app, RingtoneManager.TYPE_ALARM); // 新增
@@ -52,6 +83,21 @@ public final class AlertRingtone { // 新增 v4.5.3
             uri = getDefault(app, RingtoneManager.TYPE_RINGTONE); // 新增
         } // 新增
         return uri; // 新增
+    } // 新增
+
+    /**
+     * 【新增 v4.6.0】诊断快照用的中文描述。只读，不写任何配置。
+     * 与 SmsTrace.snapshot() 其它行的中文风格保持一致，故这里不做多语言。
+     */
+    public static String sourceLabel(Context context) { // 新增 v4.6.0
+        try { // 新增 v4.6.0
+            if (CustomRingtone.hasCustom(context)) { // 新增 v4.6.0
+                return "自定义：" + CustomRingtone.label(context); // 新增 v4.6.0
+            } // 新增 v4.6.0
+        } catch (Exception e) { // 新增 v4.6.0
+            Log.w(TAG, "build source label failed", e); // 新增 v4.6.0
+        } // 新增 v4.6.0
+        return "跟随系统闹钟音"; // 新增 v4.6.0
     } // 新增
 
     private static Uri getDefault(Context context, int type) { // 新增

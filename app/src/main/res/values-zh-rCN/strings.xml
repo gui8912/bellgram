@@ -31,7 +31,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.5.9</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.6.0</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -248,14 +248,15 @@
     <!-- modified: v4.5.0 新增「试响一次」——借鉴 SmsForwarder 的通道测试与 reReminder 的可靠性自检 -->
     <string name="preview_alert_key">preview_alert</string>
     <string name="preview_alert_title">试响一次</string>
-    <string name="preview_alert_summary">按当前音量、渐强与震动设置，用系统当前的闹钟音试响 8 秒</string>
-    <string name="preview_alert_confirm">将按当前音量档位、渐强与震动设置播放约 8 秒。\n\n这是一次试响：不会建立提醒会话，不会安排重复提醒，也不会影响正在等待的提醒。\n\n试响按当前的系统闹钟音量播放，不会改动系统音量设置。铃声使用系统当前的闹钟音，可在系统「声音 / 闹钟」里更换；应用不再内置音频文件。</string>
+    <string name="preview_alert_summary">按当前音量、渐强与震动设置，用当前提醒铃声试响 8 秒</string>
+    <!-- modified: v4.6.0 铃声可能来自用户自定义 -->
+    <string name="preview_alert_confirm">将按当前音量档位、渐强与震动设置播放约 8 秒。\n\n这是一次试响：不会建立提醒会话，不会安排重复提醒，也不会影响正在等待的提醒。\n\n试响按当前的系统闹钟音量播放，不会改动系统音量设置。铃声优先用你在设置页「提醒铃声」里选的自定义音频；没选过时跟随系统闹钟音。应用不内置音频文件。</string>
     <string name="preview_alert_action">开始试响</string>
     <string name="preview_alert_playing">正在试响，请等它结束</string>
     <string name="preview_alert_started">正在试响，约 8 秒后自动停止</string>
     <string name="preview_alert_silent">响铃与震动都已关闭，试响不会有任何效果</string>
     <string name="preview_alert_volume_zero">系统闹钟音量为 0，试响听不到声音。请先在系统设置里调高闹钟音量</string>
-    <string name="preview_alert_failed">试响失败：系统里没有可用的闹钟音，请先在系统「声音 / 闹钟」里设置一个铃声</string>
+    <string name="preview_alert_failed">试响失败：铃声加载不出来。请在系统「声音 / 闹钟」里设一个铃声，或在设置页「提醒铃声」里重新选一次</string>
     <string name="custom_value_dialog_title">输入自定义数值</string>
     <string name="custom_duration_message">单次响铃时长，0 到 120 秒；0 = 一直响到手动停止。</string>
     <string name="custom_interval_message">重复提醒间隔，0 到 60 分钟；0 = 不重复。</string>
@@ -296,4 +297,28 @@
     <string name="send_test_sms_sender">本机测试</string>
     <string name="send_test_sms_keyword">手动测试</string>
     <string name="send_test_sms_body">这是一条手动测试提醒，没有收到真实短信。</string>
+
+    <!-- 【新增 v4.6.0】设置页自定义提醒铃声。
+         选中的音频会复制成应用私有文件：不申请新权限、不依赖重启后会失效的临时 URI 授权。 -->
+    <!-- 这一条是 SharedPreferences 键名，不要翻译 -->
+    <string name="custom_ringtone_key">custom_ringtone</string>
+    <string name="custom_ringtone_title">提醒铃声</string>
+    <string name="custom_ringtone_summary_default">跟随系统闹钟音（默认）</string>
+    <string name="custom_ringtone_summary_custom">自定义：%1$s</string>
+    <string name="custom_ringtone_choice_system">跟随系统闹钟音（默认）</string>
+    <string name="custom_ringtone_choice_library">从系统铃声库选择</string>
+    <string name="custom_ringtone_choice_file">从手机文件选择</string>
+    <string name="custom_ringtone_choice_preview">试听当前铃声</string>
+    <string name="custom_ringtone_choice_note">关于自定义铃声</string>
+    <string name="custom_ringtone_importing">正在导入铃声…</string>
+    <string name="custom_ringtone_note">自定义铃声用于「持续响铃」和「试响一次」；通知横幅刚弹出时的那一声仍是系统提示音。\n\n选中的音频会复制一份到本应用私有目录，不需要存储权限，重启手机后也不会失效；单个文件上限 30 MB。</string>
+    <string name="custom_ringtone_saved">自定义铃声已保存，点「试响一次」即可试听</string>
+    <string name="custom_ringtone_restored">已恢复跟随系统闹钟音</string>
+    <string name="custom_ringtone_failed">铃声导入失败：%1$s</string>
+    <string name="custom_ringtone_error_read">读不到所选文件</string>
+    <string name="custom_ringtone_error_large">文件超过 30 MB</string>
+    <string name="custom_ringtone_error_unplayable">本机无法播放该文件，请换 MP3 / OGG / WAV / M4A</string>
+    <string name="custom_ringtone_error_write">写入应用私有目录失败</string>
+    <string name="custom_ringtone_picker_missing">本机没有可用的铃声选择器</string>
+    <string name="custom_ringtone_file_picker_missing">本机没有可用的文件选择器</string>
 </resources>

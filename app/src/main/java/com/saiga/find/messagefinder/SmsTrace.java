@@ -209,7 +209,10 @@ public final class SmsTrace {
             } catch (Exception e) {
                 notif = false;
             }
-            b.append("应用通知总开关：").append(notif ? "已开启" : "【已关闭】");
+            b.append("应用通知总开关：").append(notif ? "已开启" : "【已关闭】").append('\n');
+            // 【新增 v4.6.0】铃声来源进快照：用户换了自定义铃声后若「响一声就停」，
+            // 这张截图能立刻区分是自定义文件损坏还是播放服务没起来。
+            b.append("当前铃声：").append(AlertRingtone.sourceLabel(app));
         } catch (Exception e) {
             Log.w(TAG, "build config snapshot failed", e);
             b.append("（读取配置失败，不影响提醒）");
