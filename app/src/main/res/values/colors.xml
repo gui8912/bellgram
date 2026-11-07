@@ -2,6 +2,10 @@
 <!-- modified: v4.3.0 主色改为与新图标一致的蓝色系，并补齐暗色主题需要的语义色。
      原有色名全部保留（Java/布局的 R.color 引用不变），只调整色值与追加新键。 -->
 <resources>
+    <!-- modified: v4.5.3 【删除】零引用颜色 divider_color /
+         lightBlackColor / lightGreyColor / secondaryTextColor。
+         另删整个 values/ic_launcher_background.xml（@color/ic_launcher_background
+         零引用；自适应图标用的是 @mipmap/app_logo_background）。 -->
     <!-- primary app colors used for different purposes -->
     <color name="somewhat_red">#D14444</color>
     <color name="primaryColor">#0B57D0</color>
@@ -12,13 +16,10 @@
     <color name="secondaryDarkColor">#004ecb</color>
     <!-- modified: 原先引用 @color/app_logo_background，暗色下会跟着变成深色导致按钮文字不可读 -->
     <color name="primaryTextColor">#FFFFFF</color>
-    <color name="secondaryTextColor">#4A5568</color>
     <color name="app_logo_background">#FFFFFF</color>
   <!-- onboarding colors used in FTI page -->
     <color name="lightBlueColor">#25B4FA</color>
     <color name="lightOrangeColor">#FFA000</color>
-    <color name="lightBlackColor">#161A39</color>
-    <color name="lightGreyColor">#4DB0BADD</color>
     <color name="lightPinkColor">#F36796</color>
     <color name="lightGreenColor">#CCFF90</color>
 
@@ -44,6 +45,5 @@
     <color name="button_primary_bg">#0B57D0</color>
     <color name="on_accent_text">#FFFFFF</color>
     <color name="icon_tint">#0B57D0</color>
-    <color name="divider_color">#E8EBF2</color>
     <color name="onboarding_image_border">#33FFFFFF</color>
 </resources>

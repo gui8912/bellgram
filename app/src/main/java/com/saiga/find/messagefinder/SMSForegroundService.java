@@ -52,7 +52,8 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
     // 新实现见 AlertPreviewPlayer.java，调用方为 SettingsActivity#startPreview。
 
     private static final String TAG = "SmsService";
-    private static final String RINGTONE_RESOURCE_PATH = "raw/priority_ringtone";
+    // 【删除】private static final String RINGTONE_RESOURCE_PATH = "raw/priority_ringtone";
+    // 去向：v4.5.3 起不再内置音频文件，铃声统一由 AlertRingtone.alarmUri() 取系统闹钟音。
     private static final long WAKE_LOCK_MARGIN_MS = 60 * 1000L;
     private static final long NO_TIMEOUT_WAKE_LOCK_MS = 30 * 60 * 1000L;
     // modified: 稍后提醒时长改由 AppConfig.getSnoozeMinutes() 托管，可在设置页调整
@@ -362,6 +363,15 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
                 Log.w(TAG, "apply alarm volume level failed", e); // modified
             }
         }
+        // 【修改】v4.5.3：铃声改为跟随系统闹钟音。先取 Uri，取不到就直接走失败分支，
+        // 由调用方 fallbackToNotificationSound() 兜底，避免 MediaPlayer 建到一半再回收。
+        Uri ringtoneUri = AlertRingtone.alarmUri(this);
+        if (ringtoneUri == null) {
+            Log.e(TAG, "no usable system alarm sound, fallback to notification sound");
+            // 上面的音量档位可能已经写入系统设置，失败分支必须立刻归还
+            restoreAlarmVolume();
+            return false;
+        }
         try {
             if (mediaPlayer == null) {
                 mediaPlayer = new MediaPlayer();
@@ -371,8 +381,6 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
                     .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build());
-            Uri ringtoneUri = Uri.parse("android.resource://" + getPackageName() + "/"
-                    + RINGTONE_RESOURCE_PATH);
             mediaPlayer.setDataSource(this, ringtoneUri);
             mediaPlayer.setLooping(true);
             mediaPlayer.setOnPreparedListener(this);

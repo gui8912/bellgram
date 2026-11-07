@@ -285,7 +285,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     /**
      * modified: v4.5.2 【修改】原 bindPermissionChecklist() 绑定的是底部
-     * 「红米 / HyperOS 必做四步」TextView（R.id.permission_tip），该控件已按
+     * 「红米 / HyperOS 必做四步」TextView（原 permission_tip 控件），该控件已按
      * 首屏精简要求删除，故改绑状态条 R.id.status_text。
      *
      * <p>不直接删掉这个方法，是为了保住「在首页点一下就能做权限体检」这条最短路径：
@@ -650,7 +650,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         pendingContactName = ""; // modified
         showSnackbar(R.string.config_saved);
         trigButton.setText(R.string.triggered);
-        // modified: v4.4.0 【删除】原 clearButton.setText(R.string.clear_button)，
+        // modified: v4.4.0 【删除】原「清除按钮重设文案」调用（clear_button 字符串），
         // 首页已无清除按钮；保存成功后只需更新主按钮与状态条。
         updateStatusUi(); // modified
     }

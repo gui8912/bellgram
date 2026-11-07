@@ -17,6 +17,11 @@ package com.saiga.find.messagefinder;
 //     试响是「听一下」，不该留下任何系统设置副作用；代价是响度受当前系统闹钟音量影响，
 //     所以音量正好是 0 时直接告知原因，而不是放一段听不见的声音。
 //   · 固定 8 秒，不跟随「单次响铃时长」——那条设置允许 0（一直响），照做会变成停不下来的长铃。
+//
+// 【修改】v4.5.3：试响的铃声来源与真实提醒一起改为「系统当前闹钟音」
+//   （AlertRingtone.alarmUri），不再读 res/raw/priority_ringtone.mp3。
+//   这样才能保证「试听到的」就是「真实会响的」：用户在系统「声音 / 闹钟」里
+//   换成自己喜欢的钢琴曲后，试响与正式提醒都会跟着变，无需应用内置音频。
 import android.content.Context;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
@@ -34,7 +39,8 @@ public final class AlertPreviewPlayer { // modified: v4.5.1 新增
 
     private static final String TAG = "BellgramPreview"; // modified
     private static final long DURATION_MS = 8000L; // modified
-    private static final String RINGTONE_RESOURCE_PATH = "raw/priority_ringtone"; // modified
+    // 【删除】private static final String RINGTONE_RESOURCE_PATH = "raw/priority_ringtone";
+    // 去向：v4.5.3 起铃声统一由 AlertRingtone.alarmUri() 取系统闹钟音，见 startPlayback()。
 
     /** 播放中，已开始计时。 */
     public static final int RESULT_OK = 0; // modified
@@ -44,7 +50,7 @@ public final class AlertPreviewPlayer { // modified: v4.5.1 新增
     public static final int RESULT_NOTHING_ENABLED = 2; // modified
     /** 系统闹钟音量为 0：本播放器不改系统音量，所以必然听不到。 */
     public static final int RESULT_ALARM_VOLUME_ZERO = 3; // modified
-    /** 铃声资源加载失败。 */
+    /** 【修改】v4.5.3：系统里没有可用的闹铃音，或播放器加载失败。 */
     public static final int RESULT_FAILED = 4; // modified
 
     private final Handler handler = new Handler(Looper.getMainLooper()); // modified
@@ -111,14 +117,19 @@ public final class AlertPreviewPlayer { // modified: v4.5.1 新增
     } // modified
 
     private boolean startPlayback(Context app, AppConfig config) { // modified
+        // 【修改】v4.5.3：与 SMSForegroundService 一样跟随系统闹钟音。
+        // 系统里没设任何可用闹铃音时直接回 RESULT_FAILED，并提示去系统设置里设置。
+        Uri uri = AlertRingtone.alarmUri(app); // modified
+        if (uri == null) { // modified
+            Log.e(TAG, "no usable system alarm sound for preview"); // modified
+            return false; // modified
+        } // modified
         try { // modified
             player = new MediaPlayer(); // modified
             player.setAudioAttributes(new AudioAttributes.Builder() // modified
                     .setUsage(AudioAttributes.USAGE_ALARM) // modified: 与真实提醒同一音频用途
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION) // modified
                     .build()); // modified
-            Uri uri = Uri.parse("android.resource://" + app.getPackageName() + "/" // modified
-                    + RINGTONE_RESOURCE_PATH); // modified
             player.setDataSource(app, uri); // modified
             player.setLooping(true); // modified
             // 渐强开启时从 25% 起步，与真实提醒保持一致，方便用户判断渐强是否合适

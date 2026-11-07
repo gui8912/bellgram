@@ -5,7 +5,6 @@
     <string name="message_string">ALERT KEYWORDS (REQUIRED)</string>
     <string name="message_hint">Keywords, separate with commas</string>
     <string name="trigger_button">Turn on alert</string>
-    <string name="clear_button">Clear settings</string>
     <!-- modified: v4.4.0 shortened so the home entry fits on one line -->
     <string name="reminder_settings_button">Reminder mode</string>
     <string name="logo">app_logo</string>
@@ -25,7 +24,13 @@
          （红米 / HyperOS 必做四步）：对应控件已从 activity_main.xml 移除，
          权限体检入口改挂 status_text（见 MainActivity#bindStatusPermissionEntry），
          应用用途由引导页与 README 说明。此处不留死资源。 -->
-    <string name="current_app_version">4.5.2</string> <!-- modified: 同步界面版本号 -->
+    <!-- modified: v4.5.3 【删除】7 条零引用字符串：
+         preview_sender / preview_keyword / preview_body
+           -> v4.5.1 试响改为设置页原地播放后遗留的假短信字段；
+         clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
+         channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
+         功能入口均已迁移，此处仅清死资源。 -->
+    <string name="current_app_version">4.5.3</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -73,7 +78,6 @@
     <string name="enable_contact_perm">Enable Contacts permission for Auto Suggestion</string>
     <string name="set_permissions">SET PERMISSIONS</string>
     <string name="triggered">Alert is on</string>
-    <string name="cleared">Cleared</string>
 
     <!-- Active configuration summary in settings -->
     <string name="config_summary_header">Current Configuration:\nPhone number: </string>
@@ -87,8 +91,6 @@
 
     <!-- 二次开发新增：通知渠道说明（静音渠道 + 降级有声渠道） -->
     <string name="channel_desc">Rings the alarm tone played by Bellgram itself</string>
-    <string name="channel_name_fallback">Priority SMS (fallback)</string>
-    <string name="channel_desc_fallback">Used only when the alert service cannot start</string>
 
     <!-- 二次开发新增：最近命中记录 -->
     <string name="hit_log">Recent matches</string>
@@ -233,17 +235,14 @@
     <!-- modified: v4.5.0 preview / self-test, inspired by SmsForwarder channel tests and reReminder reliability check -->
     <string name="preview_alert_key">preview_alert</string>
     <string name="preview_alert_title">Play a test alert</string>
-    <string name="preview_alert_summary">Rings for 8 seconds with your current volume, crescendo and vibration settings</string>
-    <string name="preview_alert_confirm">This plays for about 8 seconds using your current volume level, crescendo and vibration settings.\n\nIt is a test only: no alert session is created, no repeat is scheduled, and any pending alert is left untouched.\n\nThe test uses the current system alarm volume and does not change your volume settings.</string>
+    <string name="preview_alert_summary">Rings for 8 seconds with the current system alarm sound, volume, crescendo and vibration settings</string>
+    <string name="preview_alert_confirm">This plays for about 8 seconds using your current volume level, crescendo and vibration settings.\n\nIt is a test only: no alert session is created, no repeat is scheduled, and any pending alert is left untouched.\n\nThe test uses the current system alarm volume and does not change your volume settings. The tone follows your system alarm sound: change it in system Settings &gt; Sound &gt; Alarm; the app no longer bundles any audio file.</string>
     <string name="preview_alert_action">Start test</string>
     <string name="preview_alert_playing">A test is already playing, please let it finish</string>
     <string name="preview_alert_started">Test alert playing, stops automatically in about 8 seconds</string>
     <string name="preview_alert_silent">Both ring and vibration are off, so a test would be silent</string>
     <string name="preview_alert_volume_zero">System alarm volume is 0, so the test cannot be heard. Raise the alarm volume in system settings first</string>
-    <string name="preview_alert_failed">Test failed: the ringtone resource could not be loaded, check the log</string>
-    <string name="preview_sender">Test alert</string>
-    <string name="preview_keyword">test</string>
-    <string name="preview_body">This is a test: if you can hear it and feel the vibration, the alert chain works.</string>
+    <string name="preview_alert_failed">Test failed: no usable alarm sound is set on this device. Set an alarm tone in system Settings &gt; Sound, then try again</string>
     <string name="custom_value_dialog_title">Enter a custom value</string>
     <string name="custom_duration_message">Single ring duration, 0 to 120 seconds. 0 = until I stop it.</string>
     <string name="custom_interval_message">Repeat interval, 0 to 60 minutes. 0 = do not repeat.</string>

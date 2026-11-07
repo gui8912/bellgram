@@ -2,6 +2,10 @@
 <!-- modified: v4.3.0 暗色主题专用色板。只覆盖语义色，键名与 values/colors.xml 一一对应，
      Java 侧仍用 R.color.xxx 引用，无需改代码即可整体换肤。 -->
 <resources>
+    <!-- modified: v4.5.3 【删除】零引用颜色 divider_color /
+         lightBlackColor / lightGreyColor / secondaryTextColor。
+         另删整个 values/ic_launcher_background.xml（@color/ic_launcher_background
+         零引用；自适应图标用的是 @mipmap/app_logo_background）。 -->
     <!-- 品牌色：暗色下 ActionBar 用深蓝，强调控件用亮蓝 -->
     <color name="primaryColor">#1E2A44</color>
     <color name="primaryLightColor">#8AB4FF</color>
@@ -10,7 +14,6 @@
     <color name="secondaryLightColor">#B6D4FF</color>
     <color name="secondaryDarkColor">#8AB4FF</color>
     <color name="primaryTextColor">#FFFFFF</color>
-    <color name="secondaryTextColor">#A7B4C7</color>
     <color name="app_logo_background">#182233</color>
 
     <!-- 引导页点/文字：暗底上改用更亮、更柔和的同色系 -->
@@ -42,6 +45,5 @@
     <color name="button_primary_bg">#2F6FE4</color>
     <color name="on_accent_text">#FFFFFF</color>
     <color name="icon_tint">#8AB4FF</color>
-    <color name="divider_color">#2A3A52</color>
     <color name="onboarding_image_border">#4DFFFFFF</color>
 </resources>

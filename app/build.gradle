@@ -44,7 +44,8 @@ android {
                 storePassword 'bellgram'
                 keyAlias 'bellgram'
                 keyPassword 'bellgram'
-                // minSdk 23：保留 v1 以兼容老 ROM 的安装校验，同时签 v2
+                // modified: v4.5.3 注释同步：保留 v1 以兼容旧版安装校验，同时启用 v2；
+                // 仓库内固定 keystore 不变，历次构建可直接覆盖安装。
                 v1SigningEnabled true
                 v2SigningEnabled true
             }
@@ -53,8 +54,11 @@ android {
 
     defaultConfig {
         applicationId "com.saiga.find.messagefinder"
-        // 保持向后兼容：Android 6.0 起
-        minSdk 23
+        // modified: v4.5.3 【修改】minSdk 23 -> 36（Android 16），按用户要求
+        // 「只适配最新版本的安卓系统」。
+        // 风险：非 Android 16 设备将无法安装（含覆盖安装），系统装包时会校验 minSdk。
+        // 若需回退，把这一行改回 23 重新出包即可，配置数据不受影响。
+        minSdk 36
         // modified: 29 -> 36（本轮核心合规项，理由与配套架构改造见文件头与报告 §5.1）
         targetSdk 36
         // modified: v4.3.0 = 新图标、双主题、音量档位与提醒参数可配，versionCode 23 -> 24
@@ -73,8 +77,12 @@ android {
         // modified: v4.5.2 = 首屏收成一页：删应用简介、红米四步提示、底部装饰图标，
         //           压缩间距；权限体检快捷入口由底部清单迁到状态条。
         //           versionCode 28 -> 29；固定签名不变，可直接覆盖升级
-        versionCode 29 // modified: v4.5.2 发布
-        versionName "4.5.2" // modified: v4.5.2 发布
+        // modified: v4.5.3 = minSdk 23 -> 36、删零引用依赖与死资源；
+        //           彻底移除 res/raw/priority_ringtone.mp3 与 raw/keep.xml，
+        //           新增 AlertRingtone 统一改取系统闹钟音（原 15 秒裁剪方案已弃用）。
+        //           versionCode 29 -> 30；固定签名不变，可直接覆盖升级
+        versionCode 30 // modified: v4.5.3 发布
+        versionName "4.5.3" // modified: v4.5.3 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -120,7 +128,8 @@ dependencies {
     implementation 'androidx.activity:activity:1.9.1'
     implementation 'androidx.preference:preference:1.2.1'
     implementation 'com.google.android.material:material:1.12.0'
-    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    // modified: v4.5.3 【删除】androidx.legacy 的 legacy-support-v4 依赖（早期遗留）
+    // 全项目 0 个 import / 0 个引用，早期遗留依赖；功能未受影响。
     implementation 'de.hdodenhof:circleimageview:3.1.0'
 
     // 单元测试：新增的 KeywordMatcher / PhoneNumbers 为纯 Java 类，可直接在 JVM 上验证

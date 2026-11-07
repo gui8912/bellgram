@@ -3,6 +3,8 @@
      colors.xml + values-night/bools.xml 实现明亮/暗色两套主题；系统栏图标明暗统一由
      @bool/light_system_bars 决定，EdgeToEdgeHelper 用同一个开关设置 appearance。 -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- modified: v4.5.3 【删除】零引用样式 MyTextViewStyle /
+         SecondaryButtonStyle（定义后从未被 @style 或主题 item 引用）。 -->
     <!-- custom theme for entire app -->
     <!-- modified: DayNight 父主题 + 系统栏配色/图标明暗 -->
     <style name="MyAppTheme" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
@@ -32,24 +34,8 @@
     <style name="MyAppTheme.Splash">
         <item name="android:windowBackground">@drawable/splash_drawable</item>
     </style>
-    <!-- custom style for textView (material design) -->
-    <style name="MyTextViewStyle" parent="android:Widget.TextView">
-        <!-- use text color of the derived theme-->
-        <item name="android:textColor">?attr/colorPrimary</item>
-        <!-- custom background color -->
-        <item name="android:background">@drawable/rounded_button</item>
-        <!-- left margin alignment -->
-        <item name="android:layout_marginStart">8dp</item>
-        <!-- padding -->
-        <item name="android:paddingStart">16dp</item>
-        <item name="android:paddingEnd">8dp</item>
-        <!-- align the text as center and left side -->
-        <item name="android:gravity">center|left</item>
-        <!-- make the text to appear Big, change font family -->
-        <item name="android:textAppearance">?android:attr/textAppearanceMedium</item>
-        <item name="android:fontFamily">sans-serif-condensed</item>
-        <item name="android:windowContentTransitions">true</item>
-    </style>
+    <!-- modified: v4.5.3 【删除】原「custom style for textView」注释：
+         它描述的是已删的 MyTextViewStyle，留着会指向不存在的样式。 -->
 
     <!-- custom style for Button -->
     <style name="MyButtonViewStyle" parent="Widget.AppCompat.Button">
@@ -115,18 +101,9 @@
         <item name="cornerRadius">14dp</item>
     </style>
 
-    <!-- 次要按钮：描边、无填充 -->
-    <!-- modified: 描边与文字色跟随主题 -->
-    <style name="SecondaryButtonStyle" parent="Widget.MaterialComponents.Button.OutlinedButton">
-        <item name="android:textSize">15sp</item>
-        <item name="android:textColor">@color/accent_color</item>
-        <item name="android:insetTop">0dp</item>
-        <item name="android:insetBottom">0dp</item>
-        <item name="cornerRadius">14dp</item>
-        <item name="strokeColor">@color/card_stroke</item>
-        <item name="strokeWidth">1dp</item>
-        <item name="rippleColor">@color/status_idle_bg</item>
-    </style>
+    <!-- modified: v4.5.3 【删除】原「次要按钮：描边、无填充」及其配色注释：
+         描述的是已删的 SecondaryButtonStyle（首页两个文字入口直接用
+         Widget.MaterialComponents.Button.TextButton，从未用过这个样式）。 -->
     <!-- 二次开发新增（借鉴短信铃铛）：全屏告警页主题。
          modified: 改用 DayNight 父主题，告警页也跟随明亮/暗色两套配色；
          锁屏拉起时仍是 NoActionBar，不出现不协调的顶部条。 -->
