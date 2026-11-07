@@ -147,7 +147,14 @@
                     android:layout_marginTop="10dp"
                     android:text="@string/message_string" />
 
+                <!-- modified: v4.5.5 【新增】id + 关键词库入口图标；
+                     【删除】counterEnabled/counterMaxLength=50（去向：关键词数量与单条长度
+                     已由 KeywordMatcher.MAX_KEYWORDS=50 / MAX_KEYWORD_LENGTH=30 保护，
+                     布局里按「总字符 50」计数会在多词场景误报超限）；
+                     【修改】endIconMode clear_text -> custom，一键清空改为打开全量编辑对话框，
+                     避免用户点清空后只输一个新词、静默覆盖整组已保存关键词。 -->
                 <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/message_input_layout"
                     style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -159,9 +166,9 @@
                     app:boxCornerRadiusTopEnd="12dp"
                     app:boxCornerRadiusTopStart="12dp"
                     app:boxStrokeColor="@color/accent_color"
-                    app:counterEnabled="true"
-                    app:counterMaxLength="50"
-                    app:endIconMode="clear_text"
+                    app:endIconContentDescription="@string/keyword_library_title"
+                    app:endIconDrawable="@drawable/ic_keyword_library"
+                    app:endIconMode="custom"
                     app:endIconTint="@color/accent_color"
                     app:helperText="@string/helper_text_keyword"
                     app:helperTextTextColor="@color/text_secondary"

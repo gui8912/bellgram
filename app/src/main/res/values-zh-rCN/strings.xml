@@ -3,7 +3,7 @@
     <string name="enter_the_contact_name">接收号码（可选）</string>
     <string name="contact_value">手机号，留空表示所有号码</string>
     <string name="message_string">提醒关键词（必填）</string>
-    <string name="message_hint">多个关键词用逗号分隔</string>
+    <string name="message_hint">多个关键词用空格分隔</string>
     <string name="trigger_button">启用提醒</string>
     <!-- modified: v4.4.0 文案缩短，避免首页入口按钮折成两行 -->
     <string name="reminder_settings_button">提醒方式</string>
@@ -31,7 +31,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.5.4</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.5</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -42,7 +42,19 @@
     <string name="auto_suggestion_off">当前未启用，开启将申请读取联系人权限</string>
 
     <string name="dialog_text">是否为联系人号码启用自动联想功能？</string>
-    <string name="helper_text_keyword">多个关键词用逗号或空格分隔，任一命中即响铃</string>
+    <string name="helper_text_keyword">这里显示全部关键词；点右侧图标可增删改</string>
+    <!-- [新增] v4.5.5 关键词库对话框与防覆盖确认 -->
+    <string name="keyword_library_title">关键词库</string>
+    <string name="keyword_library_hint">下面是当前全部关键词，用空格分隔。可直接改文字增删，或点下方标签的 × 删除某一条；点「保存」后一次性生效。</string>
+    <string name="keyword_library_editor_hint">用空格分隔，例如：报警 求助 急救</string>
+    <string name="keyword_library_count">共 %1$d 条</string>
+    <string name="keyword_library_chip_hint">点标签右侧的 × 可直接删掉该关键词</string>
+    <string name="keyword_library_save">保存</string>
+    <string name="keyword_library_saved">关键词已更新，共 %1$d 条</string>
+    <string name="keyword_overwrite_title">关键词将发生变化</string>
+    <string name="keyword_overwrite_message">原有：%1$s\n新输入：%2$s\n\n要保留原有关键词并加入新词，还是只用新词替换？</string>
+    <string name="keyword_overwrite_merge">合并（都保留）</string>
+    <string name="keyword_overwrite_replace">替换（只用新词）</string>
 
     <string name="OnboardingTitle1">"输入关键词"</string>
     <string name="OnboardingTitle2">"铃达"</string>

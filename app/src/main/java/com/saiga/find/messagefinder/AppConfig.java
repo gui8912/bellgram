@@ -222,6 +222,25 @@ public final class AppConfig {
     }
 
     /**
+     * [新增] v4.5.5 只更新关键词、不碰号码与联系人姓名。
+     *
+     * <p>关键词库对话框只负责编辑关键词；若复用 {@link #save(String, List)} 就得把
+     * 号码一并传进来，用户此刻可能在首页号码框里打了还没保存的内容，直接落盘会把
+     * 未校验的脏号码写进配置。这里单独开一个入口，键名与存储格式完全不变。
+     *
+     * @param keywords 已由 {@link KeywordMatcher#parseKeywords(String)} 归一化的关键词列表
+     */
+    public void saveKeywords(List<String> keywords) { // 新增 v4.5.5
+        SharedPreferences.Editor editor = configPrefs.edit(); // 新增
+        if (keywords == null || keywords.isEmpty()) { // 新增
+            editor.remove(KEY_KEYWORDS); // 新增
+        } else { // 新增
+            editor.putStringSet(KEY_KEYWORDS, new LinkedHashSet<>(keywords)); // 新增
+        } // 新增
+        editor.apply(); // 新增
+    } // 新增
+
+    /**
      * 保存联系人姓名（用于通知与设置页展示）。
      *
      * @param contactName 联系人姓名，可为空

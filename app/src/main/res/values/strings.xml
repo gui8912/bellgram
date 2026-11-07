@@ -3,7 +3,7 @@
     <string name="enter_the_contact_name">FROM NUMBER (OPTIONAL)</string>
     <string name="contact_value">Phone number, leave empty for all</string>
     <string name="message_string">ALERT KEYWORDS (REQUIRED)</string>
-    <string name="message_hint">Keywords, separate with commas</string>
+    <string name="message_hint">Keywords, separate with spaces</string>
     <string name="trigger_button">Turn on alert</string>
     <!-- modified: v4.4.0 shortened so the home entry fits on one line -->
     <string name="reminder_settings_button">Reminder mode</string>
@@ -30,7 +30,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.5.4</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.5</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -41,7 +41,19 @@
     <string name="auto_suggestion_off">Currently Disabled, enabling it will request read contacts permission</string>
 
     <string name="dialog_text">Do you want to enable auto suggestion feature for contact number ?</string>
-    <string name="helper_text_keyword">Separate with commas or spaces; any keyword hit triggers the alarm</string>
+    <string name="helper_text_keyword">All keywords shown here; tap the icon to edit</string>
+    <!-- [Added] v4.5.5 keyword library dialog and overwrite confirmation -->
+    <string name="keyword_library_title">Keyword library</string>
+    <string name="keyword_library_hint">All current keywords are listed below, separated by spaces. Edit the text to add or change them, or tap the X on a tag to remove one. Changes apply when you save.</string>
+    <string name="keyword_library_editor_hint">Separate with spaces, e.g. alert help urgent</string>
+    <string name="keyword_library_count">%1$d keywords</string>
+    <string name="keyword_library_chip_hint">Tap the X on a tag to remove that keyword</string>
+    <string name="keyword_library_save">Save</string>
+    <string name="keyword_library_saved">Keywords updated: %1$d</string>
+    <string name="keyword_overwrite_title">Keywords changed</string>
+    <string name="keyword_overwrite_message">Current: %1$s\nNew: %2$s\n\nKeep the current keywords and add the new ones, or replace them all?</string>
+    <string name="keyword_overwrite_merge">Keep both</string>
+    <string name="keyword_overwrite_replace">Replace only</string>
 
     <string name="OnboardingTitle1">"ENTER KEYWORDS"</string>
     <string name="OnboardingTitle2">"BELLGRAM"</string>

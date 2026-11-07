@@ -5,6 +5,7 @@ import android.content.ComponentName;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList; // 新增 v4.5.5：关键词标签的删除图标着色
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -40,9 +41,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.material.chip.Chip; // 新增 v4.5.5
+import com.google.android.material.chip.ChipGroup; // 新增 v4.5.5
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.util.ArrayList; // 新增 v4.5.5
+import java.util.Collections; // 新增 v4.5.5
 import java.util.List;
 import java.util.Set;
 
@@ -91,6 +96,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     // 由 SettingsActivity 弹确认框后调用 AppConfig.clear()，首页不再持有该按钮。
     private CoordinatorLayout userMessageLayout;
     private TextInputLayout contactNumberLayout;
+    /** [新增] v4.5.5 关键词输入框容器，其 endIcon 是「关键词库」入口。 */
+    private TextInputLayout messageInputLayout; // 新增
 
     private SimpleCursorAdapter contactAdapter;
     private Snackbar smsPermSnackbar;
@@ -118,6 +125,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      * 号码变了又没重新选人，就明确清掉旧姓名（宁可少显示，也不显示错的）。
      */
     private String pendingContactName = ""; // modified
+    /**
+     * [新增] v4.5.5 最近一次由 {@code syncKeywordInputWithConfig()} 回填到首页输入框的文本。
+     * 只用来在「配置被清空」时判断框里的内容是不是我们填的、用户没动过；
+     * 用户自己输入的内容永远不会被自动清掉。
+     */
+    private String restoredKeywordText = ""; // 新增
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -200,6 +213,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
             });
         }
+        bindKeywordLibraryEntry(); // 新增 v4.5.5：关键词框右侧图标 -> 全量编辑对话框
         // 状态条统一在 onResume 中刷新（onCreate 之后必然执行，避免重复调用）
     }
 
@@ -555,6 +569,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (root != null) {
             root.requestFocus();
         }
+        syncKeywordInputWithConfig(); // 新增 v4.5.5：把当前全部关键词回填进输入框
         updateStatusUi(); // modified: 从设置页返回时同步状态
     }
 
@@ -632,10 +647,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     /**
      * 保存配置并给出 UI 反馈。
      *
+     * <p>modified: v4.5.5 【新增】防静默覆盖：原本已有关键词，而这次输入与原有集合
+     * 完全没有交集时，多半是「清空输入框后只填了一个新词」，按旧逻辑会一次性丢掉
+     * 全部旧词。这里先弹「合并 / 替换」确认，由用户决定；有交集（正常增删改）直接保存。
+     *
      * @param contact  号码，空串表示不限
      * @param keywords 关键词列表
      */
-    private void saveConfig(String contact, List<String> keywords) { // modified: 参数化，替代依赖成员变量的旧实现
+    private void saveConfig(String contact, List<String> keywords) {
+        Set<String> previous = appConfig.getKeywords(); // 新增 v4.5.5
+        if (!previous.isEmpty() && Collections.disjoint(previous, keywords)) { // 新增
+            showKeywordOverwriteDialog(contact, keywords, previous); // 新增
+            return; // 新增
+        } // 新增
+        applyConfigSave(contact, keywords); // 新增
+    } // 新增
+
+    /** 真正落盘与反馈；覆盖确认里用户已明确选过，这里不再重复判断。 */
+    private void applyConfigSave(String contact, List<String> keywords) { // 新增 v4.5.5
         String previousContact = appConfig.getContact(); // modified: v4.5.0 用于判断号码是否变了
         appConfig.save(contact, keywords);
         // modified: v4.5.0 姓名与号码同步提交。
@@ -653,18 +682,190 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         // modified: v4.4.0 【删除】原「清除按钮重设文案」调用（clear_button 字符串），
         // 首页已无清除按钮；保存成功后只需更新主按钮与状态条。
         updateStatusUi(); // modified
-    }
+    } // 新增
+
+    /** [新增] v4.5.5 绑定关键词框右侧图标：点一下打开全量编辑对话框。 */
+    private void bindKeywordLibraryEntry() { // 新增
+        messageInputLayout = findViewById(R.id.message_input_layout); // 新增
+        if (messageInputLayout == null) { // 新增
+            Log.w(TAG, "keyword input layout missing, library entry disabled"); // 新增
+            return; // 新增
+        } // 新增
+        messageInputLayout.setEndIconOnClickListener(v -> showKeywordLibraryDialog()); // 新增
+    } // 新增
+
+    /**
+     * [新增] v4.5.5 把已保存的关键词回填进首页输入框。
+     *
+     * <p>旧版输入框永远空白，但状态条却显示「监听中 · 关键词：A」，用户以为
+     * 「我在加一个新词」，实际是全量替换 —— 这是本次 bug 的根因。
+     * 只在输入框为空时回填，绝不覆盖用户正在编辑的内容；配置被清空时，
+     * 只清掉「本逻辑填进去、用户没动过」的那段文本。
+     */
+    private void syncKeywordInputWithConfig() { // 新增
+        if (appConfig == null) { // 新增
+            return; // 新增
+        } // 新增
+        EditText view = findEditText(R.id.message_value); // 新增
+        if (view == null) { // 新增
+            return; // 新增
+        } // 新增
+        String current = view.getText().toString().trim(); // 新增
+        Set<String> saved = appConfig.getKeywords(); // 新增
+        if (saved.isEmpty()) { // 新增
+            if (!restoredKeywordText.isEmpty() && current.equals(restoredKeywordText)) { // 新增
+                view.setText(""); // 新增
+            } // 新增
+            restoredKeywordText = ""; // 新增
+            return; // 新增
+        } // 新增
+        if (!current.isEmpty()) { // 新增
+            return; // 用户正在编辑，绝不覆盖
+        } // 新增
+        String text = TextUtils.join(" ", saved); // 新增
+        view.setText(text); // 新增
+        restoredKeywordText = text; // 新增
+    } // 新增
+
+    /**
+     * [新增] v4.5.5 「关键词库」对话框：一个可编辑文本框用空格分隔显示全部关键词，
+     * 下方紧凑流式标签随文本实时刷新，每个标签的 × 点一下就把那个词从文本里摘掉。
+     * 文本是唯一真相，标签只做可视化与快捷删除，不做逐行长列表。
+     */
+    private void showKeywordLibraryDialog() { // 新增
+        if (isFinishing() || isDestroyed()) { // 新增
+            return; // 新增
+        } // 新增
+        View content = getLayoutInflater().inflate(R.layout.dialog_keyword_library, null); // 新增
+        final EditText editor = content.findViewById(R.id.keyword_editor); // 新增
+        final ChipGroup chips = content.findViewById(R.id.keyword_chips); // 新增
+        final TextView count = content.findViewById(R.id.keyword_count); // 新增
+        String initial = TextUtils.join(" ", appConfig.getKeywords()); // 新增
+        editor.setText(initial); // 新增
+        editor.setSelection(initial.length()); // 新增
+        editor.addTextChangedListener(new TextWatcher() { // 新增
+            @Override // 新增
+            public void beforeTextChanged(CharSequence s, int start, int c, int after) { } // 新增
+            @Override // 新增
+            public void onTextChanged(CharSequence s, int start, int before, int c) { } // 新增
+            @Override // 新增
+            public void afterTextChanged(Editable s) { // 新增
+                refreshKeywordChips(editor, chips, count); // 新增
+            } // 新增
+        }); // 新增
+
+        final AlertDialog dialog = new AlertDialog.Builder(this) // 新增
+                .setTitle(R.string.keyword_library_title) // 新增
+                .setView(content) // 新增
+                .setNegativeButton(android.R.string.cancel, null) // 新增
+                // 自接管确定按钮：校验不通过时不关闭对话框（沿用 v4.5.0 的写法）
+                .setPositiveButton(R.string.keyword_library_save, null) // 新增
+                .create(); // 新增
+        dialog.setOnShowListener(d -> { // 新增
+            Button ok = dialog.getButton(AlertDialog.BUTTON_POSITIVE); // 新增
+            if (ok == null) { // 新增
+                return; // 新增
+            } // 新增
+            ok.setOnClickListener(v -> { // 新增
+                List<String> parsed = KeywordMatcher.parseKeywords(editor.getText().toString()); // 新增
+                if (parsed.isEmpty()) { // 新增
+                    editor.setError(getString(R.string.keyword_empty)); // 新增
+                    return; // 新增
+                } // 新增
+                appConfig.saveKeywords(parsed); // 新增：只写关键词键，不动号码
+                String joined = TextUtils.join(" ", parsed); // 新增
+                EditText main = findEditText(R.id.message_value); // 新增
+                if (main != null) { // 新增
+                    main.setText(joined); // 新增
+                } // 新增
+                restoredKeywordText = joined; // 新增
+                if (trigButton != null) { // 新增：与「启用提醒」保存路径的按钮状态保持一致
+                    trigButton.setText(R.string.triggered); // 新增
+                } // 新增
+                updateStatusUi(); // 新增
+                dialog.dismiss(); // 新增
+                showSnackbar(getString(R.string.keyword_library_saved, parsed.size())); // 新增
+            }); // 新增
+        }); // 新增
+        refreshKeywordChips(editor, chips, count); // 新增
+        dialog.show(); // 新增
+    } // 新增
+
+    /** [新增] v4.5.5 按当前文本重建可删除标签与计数。 */
+    private void refreshKeywordChips(EditText editor, ChipGroup group, TextView count) { // 新增
+        if (editor == null || group == null || count == null) { // 新增
+            return; // 新增
+        } // 新增
+        group.removeAllViews(); // 新增
+        List<String> words = KeywordMatcher.parseKeywords(editor.getText().toString()); // 新增
+        for (String word : words) { // 新增
+            Chip chip = new Chip(group.getContext()); // 新增
+            chip.setText(word); // 新增
+            chip.setCloseIconResource(R.drawable.ic_keyword_remove); // 新增
+            chip.setCloseIconTint(ColorStateList.valueOf( // 新增
+                    ContextCompat.getColor(group.getContext(), R.color.alert_accent))); // 新增
+            chip.setCloseIconVisible(true); // 新增
+            chip.setOnCloseIconClickListener(v -> removeKeywordFromEditor(editor, word)); // 新增
+            group.addView(chip); // 新增
+        } // 新增
+        count.setText(getString(R.string.keyword_library_count, words.size())); // 新增
+    } // 新增
+
+    /** [新增] v4.5.5 点标签 ×：从解析结果里摘掉这个词，再把文本重设回去。 */
+    private void removeKeywordFromEditor(EditText editor, String target) { // 新增
+        List<String> current = KeywordMatcher.parseKeywords(editor.getText().toString()); // 新增
+        current.remove(target); // 新增
+        String joined = TextUtils.join(" ", current); // 新增
+        editor.setText(joined); // 新增
+        editor.setSelection(joined.length()); // 新增
+    } // 新增
+
+    /** [新增] v4.5.5 首页整框重写且与旧词无交集时的「合并 / 替换」确认。 */
+    private void showKeywordOverwriteDialog(String contact, List<String> keywords,
+                                            Set<String> previous) { // 新增
+        if (isFinishing() || isDestroyed()) { // 新增
+            return; // 新增
+        } // 新增
+        String oldText = TextUtils.join(" ", previous); // 新增
+        String newText = TextUtils.join(" ", keywords); // 新增
+        new AlertDialog.Builder(this) // 新增
+                .setTitle(R.string.keyword_overwrite_title) // 新增
+                .setMessage(getString(R.string.keyword_overwrite_message, oldText, newText)) // 新增
+                .setPositiveButton(R.string.keyword_overwrite_merge, (d, w) -> { // 新增
+                    List<String> merged = new ArrayList<>(previous); // 新增
+                    for (String k : keywords) { // 新增
+                        if (merged.size() >= KeywordMatcher.MAX_KEYWORDS) { // 新增
+                            break; // 新增
+                        } // 新增
+                        if (!merged.contains(k)) { // 新增
+                            merged.add(k); // 新增
+                        } // 新增
+                    } // 新增
+                    applyConfigSave(contact, merged); // 新增
+                }) // 新增
+                .setNegativeButton(R.string.keyword_overwrite_replace, // 新增
+                        (d, w) -> applyConfigSave(contact, keywords)) // 新增
+                .setNeutralButton(android.R.string.cancel, null) // 新增
+                .show(); // 新增
+    } // 新增
 
     private void showSnackbar(int stringResId) {
-        // modified: 【v4.2】同文件其它弹窗都有 isFinishing 校验，唯独 Snackbar 没有。
-        // 已 finish 的 Activity 上 userMessageLayout 仍非 null，会继续执行后续保存逻辑。
-        if (isFinishing() || isDestroyed()) { // modified
-            return;
-        }
-        if (userMessageLayout != null) {
-            Snackbar.make(userMessageLayout, stringResId, Snackbar.LENGTH_LONG).show();
-        }
+        showSnackbar(getString(stringResId)); // 新增 v4.5.5：委托给下面的通用重载
     }
+
+    /**
+     * [新增] v4.5.5 支持带参数的提示文案（例如「关键词已更新，共 N 条」）。
+     * isFinishing 校验沿用原实现：已 finish 的 Activity 上 userMessageLayout
+     * 仍可能非 null，不拦会继续执行后续保存逻辑。
+     */
+    private void showSnackbar(CharSequence message) { // 新增
+        if (isFinishing() || isDestroyed()) { // 新增
+            return; // 新增
+        } // 新增
+        if (userMessageLayout != null) { // 新增
+            Snackbar.make(userMessageLayout, message, Snackbar.LENGTH_LONG).show(); // 新增
+        } // 新增
+    } // 新增
 
     /**
      * 检查短信接收权限；未授予时发起请求。

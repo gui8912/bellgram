@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [新增] v4.5.5 关键词库对话框：一个可编辑文本框（空格分隔显示全部关键词）
+     + 下方紧凑流式标签（每个标签带 ×，点一下即删）。不是逐行长列表。
+     文本是唯一真相，标签只做可视化与快捷删除，二者由 TextWatcher 双向同步。 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingLeft="20dp"
+    android:paddingTop="12dp"
+    android:paddingRight="20dp">
+
+    <TextView
+        android:id="@+id/keyword_library_hint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/keyword_library_hint"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp" />
+
+    <EditText
+        android:id="@+id/keyword_editor"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="top|start"
+        android:hint="@string/keyword_library_editor_hint"
+        android:inputType="textMultiLine"
+        android:maxLines="4"
+        android:minLines="2"
+        android:padding="8dp"
+        android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary"
+        android:textSize="15sp"
+        tools:ignore="Autofill" />
+
+    <TextView
+        android:id="@+id/keyword_count"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:textColor="@color/text_primary"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        tools:text="共 3 条" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="@string/keyword_library_chip_hint"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp" />
+
+    <!-- 固定可滚动高度，保证 50 条关键词时对话框也不会被撑出屏幕。 -->
+    <ScrollView
+        android:id="@+id/keyword_chip_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:layout_marginTop="4dp"
+        android:fillViewport="true"
+        android:overScrollMode="never">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/keyword_chips"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:chipSpacingHorizontal="6dp"
+            app:chipSpacingVertical="2dp"
+            app:singleLine="false" />
+    </ScrollView>
+</LinearLayout>

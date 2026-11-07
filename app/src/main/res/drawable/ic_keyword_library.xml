@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [新增] v4.5.5 关键词库入口图标：列表样式，点击打开全量关键词编辑对话框。
+     纯白填充，实际颜色由 TextInputLayout 的 app:endIconTint 统一着色（含夜间主题）。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,6h2v2H4V6zM4,11h2v2H4V11zM4,16h2v2H4V16zM8,6h12v2H8V6zM8,11h12v2H8V11zM8,16h12v2H8V16z" />
+</vector>

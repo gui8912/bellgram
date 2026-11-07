@@ -87,8 +87,14 @@ android {
         //           v4.5.3 仅 Android 16 可装，旧设备解析阶段即被拒；实测确认
         //           抬高 minSdk 未带来任何体积收益，降回不影响 6.53 MB 瘦身成果。
         //           versionCode 30 -> 31；固定签名不变，可直接覆盖升级
-        versionCode 31 // modified: v4.5.4 发布
-        versionName "4.5.4" // modified: v4.5.4 发布
+        // modified: v4.5.5 = 修复「再次输入新关键词会覆盖原有关键词」：
+        //           首页输入框改为回填当前全部关键词（空闲时），新增「关键词库」
+        //           对话框（空格分隔全量编辑 + 流式标签点 × 即删）；整框重写且
+        //           与旧词无交集时弹「合并 / 替换」确认。AppConfig 新增
+        //           saveKeywords() 只写关键词键，不动号码与配置键名/存储格式。
+        //           versionCode 31 -> 32；固定签名不变，可直接覆盖升级
+        versionCode 32 // modified: v4.5.5 发布
+        versionName "4.5.5" // modified: v4.5.5 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
