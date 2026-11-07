@@ -289,6 +289,51 @@ public class SettingsActivity extends AppCompatActivity {
                     return true;
                 });
             }
+
+            // 【新增 v4.5.6】接收诊断：把「收到短信却没反应」变成可查看的逐步骤记录。
+            // 对话框由 SmsTrace 统一提供，首页状态条点开的也是同一个。
+            Preference tracePref = findPreference(getString(R.string.sms_trace_key));
+            if (tracePref != null) {
+                tracePref.setOnPreferenceClickListener(preference -> {
+                    Context context = getContext();
+                    if (context != null) {
+                        SmsTrace.showDialog(context);
+                    }
+                    return true;
+                });
+            }
+
+            // 【新增 v4.5.6】模拟一条命中短信：不依赖真实短信、SIM 卡与运营商，
+            // 直接调用 AlertDispatcher，用来二分「接收/匹配端」和「通知/响铃端」。
+            // 测试提醒响了 → 问题在短信权限或规则；没响 → 问题在通知权限/系统拦截。
+            Preference testSmsPref = findPreference(getString(R.string.send_test_sms_key));
+            if (testSmsPref != null) {
+                testSmsPref.setOnPreferenceClickListener(preference -> {
+                    final Context context = getContext();
+                    if (context == null) {
+                        return true;
+                    }
+                    showTracked(new MaterialAlertDialogBuilder(context)
+                            .setTitle(R.string.send_test_sms_title)
+                            .setMessage(R.string.send_test_sms_confirm)
+                            .setIcon(R.drawable.ic_bell_24)
+                            .setNegativeButton(android.R.string.cancel, null)
+                            .setPositiveButton(R.string.send_test_sms_action, (dialog, which) -> {
+                                Context app = context.getApplicationContext();
+                                SmsTrace.add(app, "手动模拟短信",
+                                        "从设置页直接调用提醒调度，不经过短信广播");
+                                AlertDispatcher.onSmsMatched(app,
+                                        context.getString(R.string.send_test_sms_sender),
+                                        context.getString(R.string.send_test_sms_keyword),
+                                        "",
+                                        context.getString(R.string.send_test_sms_body));
+                                Toast.makeText(context, R.string.send_test_sms_sent,
+                                        Toast.LENGTH_LONG).show();
+                            })
+                            .create());
+                    return true;
+                });
+            }
             refreshActiveConfiguration();
         }
 
@@ -701,6 +746,15 @@ public class SettingsActivity extends AppCompatActivity {
                 checkPref.setSummary(missing == 0
                         ? context.getString(R.string.permission_check_ready)
                         : context.getString(R.string.permission_check_pending, missing));
+            }
+            // 【新增 v4.5.6】接收诊断摘要直接显示最近一次「未触发」原因，
+            // 用户进设置页不用点开就能看到卡在哪一步。
+            Preference tracePref = findPreference(getString(R.string.sms_trace_key));
+            if (tracePref != null) {
+                String lastSkip = SmsTrace.lastSkip(context);
+                tracePref.setSummary(TextUtils.isEmpty(lastSkip)
+                        ? context.getString(R.string.sms_trace_summary)
+                        : context.getString(R.string.sms_trace_last_skip, lastSkip));
             }
         }
 

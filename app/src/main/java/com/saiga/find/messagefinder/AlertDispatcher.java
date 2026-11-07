@@ -55,6 +55,9 @@ public final class AlertDispatcher {
             scheduleFollowUp(app, 1); // modified: 乐观调度，服务没起来也能有下一轮
         } catch (Exception e) {
             Log.e(TAG, "dispatch sms alert failed", e);
+            // 【新增 v4.5.6】调度异常原本只进 logcat；短信已命中却一声不响时，
+            // 用户需要看到这一步失败，而不是只看到「已命中」。
+            SmsTrace.skip(context, "提醒调度失败", e.toString());
         }
     }
 

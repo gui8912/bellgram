@@ -30,7 +30,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.5.5</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.6</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -273,4 +273,27 @@
     <string name="exclude_keywords_hint">A message containing any of these words is ignored. Separate multiple words with commas, for example: unsubscribe, verification code.</string>
     <string name="exclude_keywords_empty">Not set (nothing is excluded)</string>
     <string name="exclude_keywords_value">Excluding: %1$s</string>
+
+    <!-- [Added v4.5.6] Receive diagnostics and a local test alert:
+         turn "nothing happened" into a step the user can actually see. -->
+    <!-- These two are SharedPreferences keys; never translate them -->
+    <string name="sms_trace_key">sms_trace</string>
+    <string name="send_test_sms_key">send_test_sms</string>
+    <string name="sms_trace_title">SMS receive diagnostics</string>
+    <string name="sms_trace_summary">Shows every step of recent SMS: broadcast delivered, number check, keyword match, notification posted</string>
+    <string name="sms_trace_empty">No SMS recorded yet. Send yourself a keyword SMS, then come back.</string>
+    <string name="sms_trace_dialog_body">Receive trace (newest first):\n\n%1$s\n\nRecent matches:\n\n%2$s</string>
+    <string name="sms_trace_clear">Clear trace</string>
+    <string name="sms_trace_cleared">Receive trace cleared</string>
+    <string name="sms_trace_last_skip">Last SMS skipped: %1$s</string>
+    <string name="status_last_skip">Last SMS not triggered: %1$s - tap for details</string>
+    <string name="keyword_library_need_sms_permission">Keywords saved, but SMS permission is still needed before alerts can work</string>
+    <string name="send_test_sms_title">Send a test alert</string>
+    <string name="send_test_sms_summary">Fires a real reminder without an SMS, to check notification, full-screen page and ringing</string>
+    <string name="send_test_sms_confirm">This fires a real alert round using your current ring, vibration and repeat settings, but without any SMS.\n\nUse it to split the problem in two: if it rings, the issue is SMS permission or your rules; if it stays silent, the issue is notification permission, full-screen permission or a ROM restriction.\n\nTap Stop on the alert to end it.</string>
+    <string name="send_test_sms_action">Fire test alert</string>
+    <string name="send_test_sms_sent">Test alert fired. Check the notification, sound and full-screen page.</string>
+    <string name="send_test_sms_sender">Local test</string>
+    <string name="send_test_sms_keyword">Manual test</string>
+    <string name="send_test_sms_body">This is a manual test alert, no SMS was received.</string>
 </resources>

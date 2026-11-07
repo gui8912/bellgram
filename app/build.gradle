@@ -93,8 +93,15 @@ android {
         //           与旧词无交集时弹「合并 / 替换」确认。AppConfig 新增
         //           saveKeywords() 只写关键词键，不动号码与配置键名/存储格式。
         //           versionCode 31 -> 32；固定签名不变，可直接覆盖升级
-        versionCode 32 // modified: v4.5.5 发布
-        versionName "4.5.5" // modified: v4.5.5 发布
+        // modified: v4.5.6 = 修复/排查「实测收到关键词短信却完全没反应」：
+        //           新增 SmsTrace 接收诊断，把 SMSReceiver 的 7 处静默跳过、
+        //           NotificationHelper 的通知静默放弃全部落到本机可查看日志；
+        //           设置页新增「接收诊断」「模拟一条提醒短信」两个入口，首页状态条
+        //           直接显示最近未触发原因；并修掉关键词库保存绕过 RECEIVE_SMS
+        //           权限申请却把按钮改成「已启动」的回归。
+        //           versionCode 32 -> 33；固定签名不变，可直接覆盖升级
+        versionCode 33 // modified: v4.5.6 发布
+        versionName "4.5.6" // modified: v4.5.6 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

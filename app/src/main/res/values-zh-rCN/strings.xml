@@ -31,7 +31,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.5.5</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.6</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -274,4 +274,26 @@
     <string name="exclude_keywords_hint">短信正文含有其中任意一个词就直接忽略，多个词用逗号分隔，例如：退订、验证码、营销。</string>
     <string name="exclude_keywords_empty">未设置（不排除任何短信）</string>
     <string name="exclude_keywords_value">当前排除：%1$s</string>
+
+    <!-- 【新增 v4.5.6】接收诊断与模拟短信：让「没反应」变成可定位的一步 -->
+    <!-- 以下两个是 SharedPreferences 键名，不要翻译 -->
+    <string name="sms_trace_key">sms_trace</string>
+    <string name="send_test_sms_key">send_test_sms</string>
+    <string name="sms_trace_title">接收诊断</string>
+    <string name="sms_trace_summary">查看最近每条短信的完整处理过程：是否收到广播、号码、关键词、通知</string>
+    <string name="sms_trace_empty">还没有收到过短信。给自己发一条含关键词的短信后再回来看。</string>
+    <string name="sms_trace_dialog_body">接收轨迹（最新在上）：\n\n%1$s\n\n最近命中记录：\n\n%2$s</string>
+    <string name="sms_trace_clear">清空诊断</string>
+    <string name="sms_trace_cleared">接收诊断已清空</string>
+    <string name="sms_trace_last_skip">最近未触发：%1$s</string>
+    <string name="status_last_skip">最近短信未触发：%1$s · 点此看诊断</string>
+    <string name="keyword_library_need_sms_permission">关键词已保存，但还需授予短信权限，否则收不到提醒</string>
+    <string name="send_test_sms_title">模拟一条提醒短信</string>
+    <string name="send_test_sms_summary">不用真发短信，直接触发一次完整提醒，检查通知、全屏页和响铃是否正常</string>
+    <string name="send_test_sms_confirm">这会按当前的响铃、震动、重复设置，真实触发一轮提醒，但不经过短信。\n\n用来把问题一分为二：响了，说明问题在短信权限或规则；没响，说明问题在通知权限、全屏权限或系统拦截。\n\n提醒页面上点「停止」即可结束。</string>
+    <string name="send_test_sms_action">立即触发</string>
+    <string name="send_test_sms_sent">测试提醒已触发，请看通知、声音与全屏页是否出现</string>
+    <string name="send_test_sms_sender">本机测试</string>
+    <string name="send_test_sms_keyword">手动测试</string>
+    <string name="send_test_sms_body">这是一条手动测试提醒，没有收到真实短信。</string>
 </resources>

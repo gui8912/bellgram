@@ -313,7 +313,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void bindStatusPermissionEntry() { // modified: v4.5.2 由 bindPermissionChecklist 改名
         View status = findViewById(R.id.status_text);
         if (status != null) {
-            status.setOnClickListener(view -> PermissionChecker.showDialog(MainActivity.this));
+            status.setOnClickListener(view -> {
+                // 【新增 v4.5.6】最近有短信被跳过时，点状态条直接看接收诊断
+                // （「收到关键词短信却没反应」时这就是答案所在）；否则保持权限体检入口。
+                if (!TextUtils.isEmpty(SmsTrace.lastSkip(MainActivity.this))) {
+                    SmsTrace.showDialog(MainActivity.this);
+                } else {
+                    PermissionChecker.showDialog(MainActivity.this);
+                }
+            });
         }
     }
 
@@ -342,7 +350,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         // modified: 权限不齐全时，状态条直接给出警示，避免用户以为「已经在监听」却收不到提醒
         int missing = PermissionChecker.missingCount(this);
-        if (missing > 0) {
+        // 【新增 v4.5.6】「最近一条短信为什么没触发」比权限条数更具体，优先占同一行显示，
+        // 刻意不新增一行，保持首屏「一页不用下拉」。点状态条可展开完整诊断。
+        String lastSkip = SmsTrace.lastSkip(this);
+        if (!TextUtils.isEmpty(lastSkip)) {
+            String brief = lastSkip.length() > 46 ? lastSkip.substring(0, 46) + "…" : lastSkip;
+            statusText.append("\n" + getString(R.string.status_last_skip, brief));
+            statusText.setTextColor(getColor(R.color.alert_accent));
+        } else if (missing > 0) {
             statusText.append("\n" + getString(R.string.status_permission_warning, missing));
             statusText.setTextColor(getColor(R.color.alert_accent));
         }
@@ -779,12 +794,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     main.setText(joined); // 新增
                 } // 新增
                 restoredKeywordText = joined; // 新增
-                if (trigButton != null) { // 新增：与「启用提醒」保存路径的按钮状态保持一致
-                    trigButton.setText(R.string.triggered); // 新增
-                } // 新增
                 updateStatusUi(); // 新增
                 dialog.dismiss(); // 新增
-                showSnackbar(getString(R.string.keyword_library_saved, parsed.size())); // 新增
+                // 【修改 v4.5.6】原实现无条件把按钮改成「已启动！」，却绕过了
+                // handleTrigger() 里的 RECEIVE_SMS 权限申请。用户只用关键词库保存时，
+                // 系统不会把 SMS_RECEIVED 投递给未授权的应用，状态条却显示「监听中」——
+                // 实测就是「收到关键词短信也完全没反应」。这里补权限校验与提示。
+                boolean smsGranted = ContextCompat.checkSelfPermission(MainActivity.this,
+                        SMS_PERMISSION) == PackageManager.PERMISSION_GRANTED; // 新增
+                if (smsGranted) { // 新增
+                    if (trigButton != null) { // 新增
+                        trigButton.setText(R.string.triggered); // 新增
+                    } // 新增
+                    showSnackbar(getString(R.string.keyword_library_saved, parsed.size())); // 新增
+                } else { // 新增
+                    showSnackbar(R.string.keyword_library_need_sms_permission); // 新增
+                    ensureSmsPermission(); // 新增：弹系统授权，回调会重新读取界面并保存
+                } // 新增
             }); // 新增
         }); // 新增
         refreshKeywordChips(editor, chips, count); // 新增

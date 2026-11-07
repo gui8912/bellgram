@@ -25,6 +25,22 @@
         android:summary="@string/permission_check_summary"
         android:persistent="false" />
 
+    <!-- 【新增 v4.5.6】排障三件套：权限体检 → 接收诊断 → 模拟短信。
+         用户报「收到关键词短信却完全没反应」时，靠这三步可自行定位到具体环节。 -->
+    <Preference
+        android:icon="@drawable/ic_tune_24"
+        android:key="@string/sms_trace_key"
+        android:title="@string/sms_trace_title"
+        android:summary="@string/sms_trace_summary"
+        android:persistent="false" />
+
+    <Preference
+        android:icon="@drawable/ic_bell_24"
+        android:key="@string/send_test_sms_key"
+        android:title="@string/send_test_sms_title"
+        android:summary="@string/send_test_sms_summary"
+        android:persistent="false" />
+
     <!-- 外观 -->
     <!-- modified: 新增外观分组 -->
     <PreferenceCategory

@@ -313,6 +313,10 @@ public final class NotificationHelper {
                 // 用户关了通知权限 / 通知总开关。此时 notify() 只会静默失败，
                 // 提前返回并留下日志，便于从 logcat 判断「为什么没提醒」。
                 Log.w(TAG, "notifications disabled by user/system, skip posting");
+                // 【新增 v4.5.6】通知是主链路唯一的唤醒入口，这里直接返回＝100% 没反应。
+                // 落到可见诊断，用户才知道该去系统设置开哪一项。
+                SmsTrace.skip(app, "通知被系统关闭",
+                        "请到 系统设置 → 应用 → 铃达 → 通知，打开「允许通知」及该通知类别");
                 return;
             }
             ensureChannels(app);
@@ -324,15 +328,22 @@ public final class NotificationHelper {
                 if (!channelExists(app, channelId)) { // modified
                     effectiveChannel = NotificationChannel.DEFAULT_CHANNEL_ID; // modified
                     Log.w(TAG, "target channel missing, fall back to default channel"); // modified
+                    SmsTrace.add(app, "通知渠道降级", "目标渠道不可用，改用系统默认渠道；可能无声"); // 新增 v4.5.6
                 }
             }
             manager.notify(NOTIFICATION_ID,
                     build(app, effectiveChannel, sender, keyword, person, body, status, // modified
                             withFullScreenIntent, withActions)); // modified
+            // 【新增 v4.5.6】走到这里说明应用侧已把通知交给系统。若用户仍说没反应，
+            // 问题就在系统侧：通知类别被静音、全屏 Intent 特殊权限未授予、或 ROM 拦截后台弹窗。
+            SmsTrace.add(app, withFullScreenIntent ? "提醒通知已提交" : "状态通知已更新",
+                    "渠道=" + effectiveChannel + "；仍无动静请查系统通知类别与全屏权限");
         } catch (SecurityException e) {
             Log.e(TAG, "POST_NOTIFICATIONS not granted, cannot post alert", e);
+            SmsTrace.skip(app, "缺少通知权限", "POST_NOTIFICATIONS 未授予，通知被系统拒绝"); // 新增 v4.5.6
         } catch (Exception e) {
             Log.e(TAG, "post notification failed", e);
+            SmsTrace.skip(app, "发通知失败", e.toString()); // 新增 v4.5.6
         }
     }
 
