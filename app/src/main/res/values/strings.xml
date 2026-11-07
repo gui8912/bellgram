@@ -30,7 +30,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.5.6</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.7</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -107,7 +107,7 @@
     <!-- 二次开发新增：最近命中记录 -->
     <string name="hit_log">Recent matches</string>
     <string name="hit_log_key">hit_log_key</string>
-    <string name="hit_log_empty">No match recorded yet. Send a test SMS to verify your rule.</string>
+    <string name="hit_log_empty">No match recorded yet. Tap here for the full receive trace and current rules.</string>
     <string name="clear_hit_log">Clear match history</string>
     <string name="clear_hit_log_key">clear_hit_log_key</string>
     <string name="hit_log_cleared">Match history cleared</string>
@@ -281,8 +281,8 @@
     <string name="send_test_sms_key">send_test_sms</string>
     <string name="sms_trace_title">SMS receive diagnostics</string>
     <string name="sms_trace_summary">Shows every step of recent SMS: broadcast delivered, number check, keyword match, notification posted</string>
-    <string name="sms_trace_empty">No SMS recorded yet. Send yourself a keyword SMS, then come back.</string>
-    <string name="sms_trace_dialog_body">Receive trace (newest first):\n\n%1$s\n\nRecent matches:\n\n%2$s</string>
+    <string name="sms_trace_empty">No SMS broadcast received yet. If your phone did receive an SMS, the system did not deliver it to this app: check SMS permission, auto-start and battery whitelist.</string>
+    <string name="sms_trace_dialog_body">Receive trace (newest first):\n\n%1$s\n\nRules and permissions now:\n%2$s\n\nRecent matches:\n\n%3$s</string>
     <string name="sms_trace_clear">Clear trace</string>
     <string name="sms_trace_cleared">Receive trace cleared</string>
     <string name="sms_trace_last_skip">Last SMS skipped: %1$s</string>

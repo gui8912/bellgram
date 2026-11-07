@@ -100,8 +100,15 @@ android {
         //           直接显示最近未触发原因；并修掉关键词库保存绕过 RECEIVE_SMS
         //           权限申请却把按钮改成「已启动」的回归。
         //           versionCode 32 -> 33；固定签名不变，可直接覆盖升级
-        versionCode 33 // modified: v4.5.6 发布
-        versionName "4.5.6" // modified: v4.5.6 发布
+        // modified: v4.5.7 = 修复「命中日志写入掐断提醒主链路」：原来 HitLog.add()
+        //           排在 AlertDispatcher 之前且裸调 SharedPreferences，写日志失败会
+        //           被 onReceive 的外层 catch 吞掉，表现为「没记录 + 完全没反应」；
+        //           改为先派发、日志后置并各自吞异常，HitLog 补类型兜底。
+        //           另外把「最近命中记录」入口直接接到完整诊断，诊断里新增
+        //           当前规则与权限快照，一张截图即可判断广播未投递还是规则不匹配。
+        //           versionCode 33 -> 34；固定签名不变，可直接覆盖升级
+        versionCode 34 // modified: v4.5.7 发布
+        versionName "4.5.7" // modified: v4.5.7 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

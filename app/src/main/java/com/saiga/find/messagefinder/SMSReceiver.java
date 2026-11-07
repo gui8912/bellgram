@@ -147,17 +147,27 @@ public class SMSReceiver extends BroadcastReceiver {
         Log.i(TAG, "keyword matched: " + matchedKeyword + ", from " + sender);
         SmsTrace.hit(context, "命中「" + matchedKeyword + "」，来源 " + sender + "，正文=" + body); // 新增 v4.5.6
 
-        // 记录命中日志，便于用户在设置页自查规则是否生效
-        HitLog.add(context, sender, matchedKeyword, body);
-
+        // 【修改 v4.5.7】主链路优先、日志靠后。原顺序是 HitLog.add() → AlertDispatcher，
+        // 命中日志的写入排在派发之前：一旦写日志抛异常（hit_log 键类型被改坏、
+        // SharedPreferences 损坏、畸形文本截断），异常会被 onReceive 的外层 catch
+        // 整个吞掉，提醒根本发不出去 —— 用户看到的就是「没记录 + 完全没反应」。
+        // 现在先派发提醒，命中日志与诊断一律放在后面，且各自吞异常。
         // 通知里展示的姓名优先取用户从通讯录里选中的名字
         String personName = config.getContactName();
 
         // modified: v4 主链路。广播接收器处于后台，绝不能在这里启动前台服务；
         // 发通知是系统允许的高优先级行为，通知的全屏 Intent 会拉起用户可见的
         // AlertActivity，再由它启动服务播放铃声，全程符合 Android 12~16 的限制。
-        AlertDispatcher.onSmsMatched(context, sender, matchedKeyword, personName, body);
-        SmsTrace.add(context, "已交给提醒调度", "通知/全屏页/服务由 AlertDispatcher 接管"); // 新增 v4.5.6
+        try { // 新增 v4.5.7：派发失败也要留下可见原因，不能只剩一句 logcat
+            AlertDispatcher.onSmsMatched(context, sender, matchedKeyword, personName, body);
+            SmsTrace.add(context, "已交给提醒调度", "通知/全屏页/服务由 AlertDispatcher 接管"); // 新增 v4.5.6
+        } catch (Exception e) { // 新增
+            Log.e(TAG, "dispatch sms alert failed", e); // 新增
+            SmsTrace.skip(context, "派发提醒失败", e.toString()); // 新增
+        } // 新增
+
+        // 记录命中日志，便于用户在设置页自查规则是否生效（旁路，内部已做异常隔离）
+        HitLog.add(context, sender, matchedKeyword, body);
     }
 
     /**

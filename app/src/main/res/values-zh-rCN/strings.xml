@@ -31,7 +31,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.5.6</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.5.7</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -108,7 +108,7 @@
     <!-- 二次开发新增：最近命中记录 -->
     <string name="hit_log">最近命中记录</string>
     <string name="hit_log_key">hit_log_key</string>
-    <string name="hit_log_empty">暂无命中记录。可发送一条测试短信验证规则是否生效。</string>
+    <string name="hit_log_empty">暂无命中记录。点本项查看完整接收诊断与当前规则。</string>
     <string name="clear_hit_log">清空命中记录</string>
     <string name="clear_hit_log_key">clear_hit_log_key</string>
     <string name="hit_log_cleared">命中记录已清空</string>
@@ -281,8 +281,8 @@
     <string name="send_test_sms_key">send_test_sms</string>
     <string name="sms_trace_title">接收诊断</string>
     <string name="sms_trace_summary">查看最近每条短信的完整处理过程：是否收到广播、号码、关键词、通知</string>
-    <string name="sms_trace_empty">还没有收到过短信。给自己发一条含关键词的短信后再回来看。</string>
-    <string name="sms_trace_dialog_body">接收轨迹（最新在上）：\n\n%1$s\n\n最近命中记录：\n\n%2$s</string>
+    <string name="sms_trace_empty">还没有收到过短信广播。若手机确实收到了短信，说明系统没把广播投递给本应用：请检查接收短信权限、自启动与电池白名单。</string>
+    <string name="sms_trace_dialog_body">接收轨迹（最新在上）：\n\n%1$s\n\n当前规则与权限：\n%2$s\n\n最近命中记录：\n\n%3$s</string>
     <string name="sms_trace_clear">清空诊断</string>
     <string name="sms_trace_cleared">接收诊断已清空</string>
     <string name="sms_trace_last_skip">最近未触发：%1$s</string>

@@ -303,6 +303,21 @@ public class SettingsActivity extends AppCompatActivity {
                 });
             }
 
+            // 【新增 v4.5.7】用户报「收到短信没反应」时直觉会去点「最近命中记录」，
+            // 但那一页空态只写「暂无命中记录」，不给任何线索，导致排查卡在原地。
+            // 改成点开同一个诊断对话框（接收轨迹 + 当前规则权限快照 + 命中记录），
+            // 无论从哪个入口进来都能看到全貌。
+            Preference hitLogPref = findPreference(getString(R.string.hit_log_key));
+            if (hitLogPref != null) {
+                hitLogPref.setOnPreferenceClickListener(preference -> {
+                    Context context = getContext();
+                    if (context != null) {
+                        SmsTrace.showDialog(context);
+                    }
+                    return true;
+                });
+            }
+
             // 【新增 v4.5.6】模拟一条命中短信：不依赖真实短信、SIM 卡与运营商，
             // 直接调用 AlertDispatcher，用来二分「接收/匹配端」和「通知/响铃端」。
             // 测试提醒响了 → 问题在短信权限或规则；没响 → 问题在通知权限/系统拦截。
@@ -736,8 +751,13 @@ public class SettingsActivity extends AppCompatActivity {
             Preference hitLogPref = findPreference(getString(R.string.hit_log_key));
             if (hitLogPref != null) {
                 String log = HitLog.dump(context);
-                hitLogPref.setSummary(TextUtils.isEmpty(log)
-                        ? context.getString(R.string.hit_log_empty) : log);
+                String lastSkip = SmsTrace.lastSkip(context);
+                // 【新增 v4.5.7】有「最近未触发原因」时优先显示它；
+                // 只写「暂无命中记录」对用户判断根因毫无帮助。
+                hitLogPref.setSummary(!TextUtils.isEmpty(lastSkip)
+                        ? context.getString(R.string.sms_trace_last_skip, lastSkip)
+                        : (TextUtils.isEmpty(log)
+                                ? context.getString(R.string.hit_log_empty) : log));
             }
             // 权限体检摘要实时反映缺了几项
             Preference checkPref = findPreference(getString(R.string.permission_check_key));

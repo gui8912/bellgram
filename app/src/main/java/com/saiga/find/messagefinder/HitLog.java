@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import androidx.preference.PreferenceManager; // modified: 清除平台废弃 API，默认文件名不变
 import android.text.TextUtils;
+import android.util.Log; // 新增 v4.5.7
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -22,6 +23,7 @@ import java.util.Locale;
  */
 public final class HitLog {
 
+    private static final String TAG = "HitLog"; // 新增 v4.5.7
     private static final String KEY_HIT_LOG = "hit_log";
     private static final int MAX_ENTRIES = 20;
     private static final String LINE_SEPARATOR = "\n";
@@ -48,28 +50,49 @@ public final class HitLog {
         if (context == null) {
             return;
         }
-        String record = format(sender, keyword, body);
-        synchronized (LOCK) {
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-            String stored = prefs.getString(KEY_HIT_LOG, "");
-            List<String> lines = new ArrayList<>();
-            lines.add(record);
-            if (!TextUtils.isEmpty(stored)) {
-                String[] previous = stored.split(LINE_SEPARATOR);
-                for (String line : previous) {
-                    if (lines.size() >= MAX_ENTRIES) {
-                        break;
-                    }
-                    if (!TextUtils.isEmpty(line) && !line.trim().isEmpty()) {
-                        lines.add(line);
+        // 【新增 v4.5.7】日志写入排在 SMSReceiver 里 AlertDispatcher 之前，属于
+        // 提醒主链路的关键路径。原实现裸调 getString / commit / format：一旦 hit_log
+        // 键被写成别的类型、prefs 文件损坏，或文本含畸形 UTF-16 导致截断抛异常，
+        // 异常会一路冒到 SMSReceiver.onReceive 的外层 catch —— 结果是「命中记录没写
+        // 进去」且「提醒完全没发出去」，与用户看到的「没记录 + 没反应」完全吻合。
+        // 日志是旁路：这里整体吞异常，丢一条日志可以再记，绝不能掐断提醒。
+        try {
+            String record = format(sender, keyword, body);
+            synchronized (LOCK) {
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+                String stored = readLog(prefs); // 新增 v4.5.7：类型兜底
+                List<String> lines = new ArrayList<>();
+                lines.add(record);
+                if (!TextUtils.isEmpty(stored)) {
+                    String[] previous = stored.split(LINE_SEPARATOR);
+                    for (String line : previous) {
+                        if (lines.size() >= MAX_ENTRIES) {
+                            break;
+                        }
+                        if (!TextUtils.isEmpty(line) && !line.trim().isEmpty()) {
+                            lines.add(line);
+                        }
                     }
                 }
+                // modified: 【v4.2】apply() 只更新内存、把磁盘写入排进异步队列；
+                // AOSP 只在 Activity/Service stop 时等待落盘，BroadcastReceiver 返回后
+                // 进程随时可被回收。这里是唯一落在短信广播链路上的写操作，
+                // 改 commit() 同步落盘（20 条短文本，开销可忽略）。
+                // 新增 v4.5.7：putString 会覆盖旧键类型，读到的脏键在这一步自愈。
+                prefs.edit().putString(KEY_HIT_LOG, TextUtils.join(LINE_SEPARATOR, lines)).commit(); // modified
             }
-            // modified: 【v4.2】apply() 只更新内存、把磁盘写入排进异步队列；
-            // AOSP 只在 Activity/Service stop 时等待落盘，BroadcastReceiver 返回后
-            // 进程随时可被回收。这里是唯一落在短信广播链路上的写操作，
-            // 改 commit() 同步落盘（20 条短文本，开销可忽略）。
-            prefs.edit().putString(KEY_HIT_LOG, TextUtils.join(LINE_SEPARATOR, lines)).commit(); // modified
+        } catch (Exception e) { // 新增 v4.5.7
+            Log.w(TAG, "write hit log failed, alert chain untouched", e); // 新增
+        } // 新增
+    }
+
+    /** 【新增 v4.5.7】与 AppConfig.safeGetString 同样的类型兜底：脏键按「无记录」处理。 */
+    private static String readLog(SharedPreferences prefs) { // 新增 v4.5.7
+        try {
+            String stored = prefs.getString(KEY_HIT_LOG, "");
+            return stored == null ? "" : stored;
+        } catch (ClassCastException e) {
+            return "";
         }
     }
 
@@ -83,11 +106,16 @@ public final class HitLog {
         }
         // modified: 【v4.2】原实现只有 add() 加锁，clear()/dump() 裸读写；
         // 「点清空」与「来短信」并发时，add() 可能把清空前的旧记录写回，清空失效。
-        synchronized (LOCK) { // modified
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context); // modified
-            String stored = prefs.getString(KEY_HIT_LOG, ""); // modified
-            return stored == null ? "" : stored; // modified
-        }
+        // 新增 v4.5.7：设置页读日志同样不许抛异常（不能让「查看记录」把页面搞崩）。
+        try { // 新增
+            synchronized (LOCK) { // modified
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context); // modified
+                return readLog(prefs); // 新增 v4.5.7：类型兜底，替代原裸 getString
+            }
+        } catch (Exception e) { // 新增
+            Log.w(TAG, "read hit log failed", e); // 新增
+            return ""; // 新增
+        } // 新增
     }
 
     /**
@@ -99,10 +127,14 @@ public final class HitLog {
         if (context == null) {
             return;
         }
-        synchronized (LOCK) { // modified: 【v4.2】与 add()/dump() 共用同一把锁
-            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context); // modified
-            prefs.edit().remove(KEY_HIT_LOG).commit(); // modified: 同步落盘
-        }
+        try { // 新增 v4.5.7：清空失败只记日志，不影响任何其它流程
+            synchronized (LOCK) { // modified: 【v4.2】与 add()/dump() 共用同一把锁
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context); // modified
+                prefs.edit().remove(KEY_HIT_LOG).commit(); // modified: 同步落盘
+            }
+        } catch (Exception e) { // 新增
+            Log.w(TAG, "clear hit log failed", e); // 新增
+        } // 新增
     }
 
     private static String format(String sender, String keyword, String body) {

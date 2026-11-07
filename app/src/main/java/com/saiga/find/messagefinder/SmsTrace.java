@@ -13,12 +13,16 @@ package com.saiga.find.messagefinder;
 // 吞异常、用 commit() 同步落盘（广播接收器返回后进程随时可能被回收），
 // 任何失败都不得影响提醒主链路。
 
+import android.Manifest; // 新增 v4.5.7
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager; // 新增 v4.5.7
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
+import androidx.core.app.NotificationManagerCompat; // 新增 v4.5.7
+import androidx.core.content.ContextCompat; // 新增 v4.5.7
 import androidx.preference.PreferenceManager;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -28,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set; // 新增 v4.5.7
 
 /** 短信接收全过程的可视化诊断记录（最近 N 条）。 */
 public final class SmsTrace {
@@ -62,7 +67,10 @@ public final class SmsTrace {
     public static void hit(Context context, String detail) { // 新增 v4.5.6
         // 清除与写入放在同一个锁内完成：两条短信并发时，否则可能出现
         // 「A 命中清提示 → B 跳过写提示 → A 的清除被覆盖 / 或反过来」的错序。
-        append(context, "已命中并派发", detail, false, true);
+        // 【修改 v4.5.7】原文案「已命中并派发」写在派发之前，会让诊断误导排障：
+        // 看起来已经派发了，实际后面才调用 AlertDispatcher。改成「规则命中」，
+        // 派发成功由 SMSReceiver 另记一条「已交给提醒调度」。
+        append(context, "规则命中", detail, false, true);
     }
 
     private static void append(Context context, String stage, String detail,
@@ -166,8 +174,53 @@ public final class SmsTrace {
     }
 
     /**
-     * 统一的「接收诊断」对话框：首页状态条与设置页共用，避免两处各写一份。
-     * 同时展示接收轨迹与命中记录，用户实测一条短信就能看出卡在哪一步。
+     * 【新增 v4.5.7】当前规则与权限快照。
+     *
+     * <p>广播根本没投递时，接收轨迹是空的，光看轨迹只知道「没收到」，仍然无法判断
+     * 是权限没给、关键词没配、号码写错还是 ROM 拦了。这张快照把「应用此刻实际读到
+     * 的配置」和两项关键权限一起摊开，一张截图即可定位，不必再来回追问用户。
+     * 与轨迹里的中文文案保持同一风格，全部只读、不写任何配置。
+     */
+    private static String snapshot(Context context) { // 新增 v4.5.7
+        StringBuilder b = new StringBuilder();
+        try {
+            Context app = context.getApplicationContext() != null
+                    ? context.getApplicationContext() : context;
+            AppConfig config = AppConfig.get(app);
+            Set<String> keywords = config.getKeywords();
+            b.append("关键词：").append(keywords.isEmpty()
+                    ? "【未配置】" : TextUtils.join(" ", keywords)).append('\n');
+            String contact = config.getContact();
+            b.append("关注号码：").append(contact.isEmpty()
+                    ? "不限（所有发送方）" : contact).append('\n');
+            b.append("匹配模式：").append(config.isMatchAllEnabled()
+                    ? "全部命中（需每条词都出现）" : "任意命中").append('\n');
+            b.append("提醒总开关：").append(config.isAlertEnabled()
+                    ? "开" : "【已关闭】").append('\n');
+            Set<String> excluded = config.getExcludeKeywords();
+            b.append("排除词：").append(excluded.isEmpty()
+                    ? "无" : TextUtils.join(" ", excluded)).append('\n');
+            boolean sms = ContextCompat.checkSelfPermission(app, Manifest.permission.RECEIVE_SMS)
+                    == PackageManager.PERMISSION_GRANTED;
+            b.append("接收短信权限：").append(sms ? "已授予" : "【未授予】").append('\n');
+            boolean notif;
+            try {
+                notif = NotificationManagerCompat.from(app).areNotificationsEnabled();
+            } catch (Exception e) {
+                notif = false;
+            }
+            b.append("应用通知总开关：").append(notif ? "已开启" : "【已关闭】");
+        } catch (Exception e) {
+            Log.w(TAG, "build config snapshot failed", e);
+            b.append("（读取配置失败，不影响提醒）");
+        }
+        return b.toString();
+    }
+
+    /**
+     * 统一的「接收诊断」对话框：首页状态条、设置页「接收诊断」与「最近命中记录」
+     * 共用，避免多处各写一份。同时展示接收轨迹、当前规则权限快照与命中记录，
+     * 用户实测一条短信就能看出卡在哪一步。
      */
     public static void showDialog(Context context) { // 新增 v4.5.6
         if (context == null) {
@@ -179,6 +232,7 @@ public final class SmsTrace {
             String body = context.getString(R.string.sms_trace_dialog_body,
                     TextUtils.isEmpty(trace)
                             ? context.getString(R.string.sms_trace_empty) : trace,
+                    snapshot(context), // 新增 v4.5.7
                     TextUtils.isEmpty(hits)
                             ? context.getString(R.string.hit_log_empty) : hits);
             new MaterialAlertDialogBuilder(context)
