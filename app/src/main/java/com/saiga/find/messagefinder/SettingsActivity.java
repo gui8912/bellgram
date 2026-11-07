@@ -281,7 +281,7 @@ public class SettingsActivity extends AppCompatActivity {
         } // 新增
 
         /**
-         * 手机文件选择器。用 */* + EXTRA_MIME_TYPES 而不是 audio/*：
+         * 手机文件选择器。用「任意 MIME 类型」+ EXTRA_MIME_TYPES 而不是 audio 类型：
          * 部分国产 ROM 把 .ogg 报成 application/ogg，audio/* 会把用户刚裁好的
          * 卡农 Ogg 直接过滤掉。非音频文件由导入时的 MediaPlayer 校验挡住。
          */
