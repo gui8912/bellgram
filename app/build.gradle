@@ -141,8 +141,18 @@ android {
         //           ⑤【P2】诊断快照补「提醒渠道（importance + 有无声音）」「全屏通知权限」，
         //           对话框加「通知设置」直达入口——渠道被系统降级是又一个静默失效点。
         //           versionCode 37 -> 38；固定签名不变，可直接覆盖升级
-        versionCode 38 // modified: v4.6.1 发布
-        versionName "4.6.1" // modified: v4.6.1 发布
+        // modified: v4.6.2 = 修「暗色主题下弹窗最下方的按钮文字看不清」：
+        //           根因不是某一处写死颜色，而是暗色主题把 colorPrimary 让给了 ActionBar 底色
+        //           （夜间 #1E2A44），而 Material 对话框按钮文字色正是取 ?attr/colorPrimary
+        //           （mtrl_text_btn_text_color_selector），深底深字就糊在一起了。
+        //           改法：新增 AppAlertDialogTheme / AppCompatDialogTheme 两个对话框覆盖层，
+        //           在对话框作用域内把 colorPrimary 换成 accent_color（夜间 #8AB4FF），
+        //           并钉住标题/正文的语义色；MyAppTheme 同时挂到 materialAlertDialogTheme
+        //           与 alertDialogTheme，覆盖 MaterialAlertDialogBuilder 与 AlertDialog.Builder
+        //           两条构造路径。白天 primaryColor 与 accent_color 同为 #0B57D0，观感不变。
+        //           版本号四处同步；配置键名、布局、依赖均未动
+        versionCode 39 // modified: v4.6.2 发布
+        versionName "4.6.2" // modified: v4.6.2 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

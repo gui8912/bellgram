@@ -23,6 +23,10 @@
         <item name="android:navigationBarColor">@color/surface_bg</item>
         <item name="android:windowLightStatusBar">@bool/light_system_bars</item>
         <item name="android:windowLightNavigationBar">@bool/light_system_bars</item>
+        <!-- modified: v4.6.2 对话框配色走统一入口，修暗色下按钮文字看不清；
+             详见下方 AppAlertDialogTheme / AppCompatDialogTheme 的注释。 -->
+        <item name="materialAlertDialogTheme">@style/AppAlertDialogTheme</item> <!-- 新增 v4.6.2 -->
+        <item name="alertDialogTheme">@style/AppCompatDialogTheme</item> <!-- 新增 v4.6.2 -->
         <!-- custom snackbar styling -->
         <item name="snackbarStyle">@style/Widget.App.Snackbar</item>
         <!-- adjust colors of edit text when used and in normal state-->
@@ -59,6 +63,33 @@
         <item name="android:windowBackground">@color/card_bg</item>
         <item name="colorAccent">@color/accent_color</item>
     </style>
+
+    <!-- 【新增 v4.6.2】对话框统一配色：修「暗色下弹窗最下方按钮字看不清」。
+         根因（对着 material-1.12.0.aar 里的样式定义核过，不是猜的）：
+           Material 对话框的按钮文字色来自 mtrl_text_btn_text_color_selector，
+           该选择器 enabled 分支的取值是 ?attr/colorPrimary；
+           而本项目暗色主题把 colorPrimary 设成了 ActionBar 的底色 @color/primaryColor
+           （夜间 = #1E2A44 深蓝），于是深底上写深字，按钮基本看不见。
+         为什么不直接改全局 colorPrimary：它就是 ActionBar 背景色，改浅会让标题变成
+         白字浅底，按下葫芦浮起瓢。所以只在「对话框作用域」里把它换成高对比强调色。
+         为什么白天观感不变：values/colors.xml 里 primaryColor 与 accent_color 同为
+         #0B57D0，本改动实际只在夜间生效。
+         两个样式分别对应两条构造路径，缺一不可：
+           · AppAlertDialogTheme        —— MaterialAlertDialogBuilder（设置页、诊断）
+           · AppCompatDialogTheme       —— AlertDialog.Builder 默认取 alertDialogTheme（权限体检、首页）
+         按钮之外另把标题/正文/自定义视图的文字色钉到语义色上，避免个别 ROM 上
+         DayNight ThemeOverlay 解析异常又退回深色字。 -->
+    <style name="AppAlertDialogTheme" parent="ThemeOverlay.MaterialComponents.MaterialAlertDialog"> <!-- 新增 v4.6.2 -->
+        <item name="colorPrimary">@color/accent_color</item> <!-- 新增 v4.6.2 -->
+        <item name="android:textColorPrimary">@color/text_primary</item> <!-- 新增 v4.6.2 -->
+        <item name="android:textColorSecondary">@color/text_secondary</item> <!-- 新增 v4.6.2 -->
+    </style> <!-- 新增 v4.6.2 -->
+
+    <style name="AppCompatDialogTheme" parent="ThemeOverlay.MaterialComponents.Dialog.Alert"> <!-- 新增 v4.6.2 -->
+        <item name="colorPrimary">@color/accent_color</item> <!-- 新增 v4.6.2 -->
+        <item name="android:textColorPrimary">@color/text_primary</item> <!-- 新增 v4.6.2 -->
+        <item name="android:textColorSecondary">@color/text_secondary</item> <!-- 新增 v4.6.2 -->
+    </style> <!-- 新增 v4.6.2 -->
 
     <!-- Theme used primarily for FTI setup / Onboarding screen -->
     <!-- modified: 去掉写死的 #680000，改用可跟随主题的资源 -->
