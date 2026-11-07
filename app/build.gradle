@@ -112,6 +112,19 @@ android {
         encoding = 'UTF-8'
     }
 
+    // modified: v4.5.3 【新增】强制压缩 DEX，抵消 minSdk 36 带来的 APK 膨胀。
+    // AGP 4.2 起，minSdk >= 28 时默认把 DEX「未压缩」打进 APK：装到设备上更小、
+    // 启动更快，但直接分发的 APK 文件会明显变大（实测三个 DEX 由 4,463,635 B
+    // 压缩态变成 10,598,512 B 裸存储，比 v4.5.2 反增 6.13 MB，把删铃声省下的
+    // 3.13 MB 全部吃掉还倒贴）。本仓库直接分发 debug APK 文件，故显式改回压缩。
+    // 依据：AGP 4.2 release notes「DEX files uncompressed in APKs when minSdk = 28
+    // or higher」；AGP 8.0.2+ DSL 为 android.packaging.dex.useLegacyPackaging。
+    packaging {
+        dex {
+            useLegacyPackaging = true
+        }
+    }
+
     lint {
         // v4 已清除 android.preference 等废弃 API；保留该开关是为了避免 OEM 相关
         // 的第三方库告警阻断本地调试打包（个人自用工程，不进 CI）。
