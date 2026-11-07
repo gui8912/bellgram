@@ -114,8 +114,16 @@ android {
         //           通知提至 PRIORITY_MAX + 锁屏公开可见，避免亮屏时横幅被压下去；
         //           诊断第一行补屏幕亮灭/锁屏状态，区分「广播没到」与「全屏页被系统降级」。
         //           versionCode 34 -> 35；固定签名不变，可直接覆盖升级
-        versionCode 35 // modified: v4.5.8 发布
-        versionName "4.5.8" // modified: v4.5.8 发布
+        // modified: v4.5.9 = 修复「只响一声，没有响够设定时长」：本轮 60 秒持续响铃
+        //           完全依赖全屏 Intent 拉起 AlertActivity 再启动 FGS，而亮屏交互时系统
+        //           会把全屏 Intent 降级成悬挂通知、Android 14+ 未授予全屏通知权限时亦然，
+        //           于是只剩通知渠道那一声。新增 1.5 秒 setAlarmClock 兜底，由
+        //           RepeatAlarmReceiver 校验「服务确实没在跑」后拉起告警页；
+        //           cancel() 一并撤掉兜底，避免会话结束后误弹页。诊断补本轮时长、
+        //           全屏权限、告警页拉起、服务启动、播放失败降级等可见记录。
+        //           versionCode 35 -> 36；固定签名不变，可直接覆盖升级
+        versionCode 36 // modified: v4.5.9 发布
+        versionName "4.5.9" // modified: v4.5.9 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

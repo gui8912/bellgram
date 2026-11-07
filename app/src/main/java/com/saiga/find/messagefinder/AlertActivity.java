@@ -210,6 +210,10 @@ public class AlertActivity extends AppCompatActivity {
             } else {
                 startService(intent);
             }
+            // 【新增 v4.5.9】诊断里明确「告警页是否真的拉起」：这一页没起来，
+            // 播放服务就不会启动，用户只会听到通知渠道那一声。
+            SmsTrace.add(AlertActivity.this, "告警页已拉起", // 新增 v4.5.9
+                    "本轮持续响铃交由播放服务接管"); // 新增 v4.5.9
         } catch (Exception e) {
             // 例如用户刚点过「停止」、或系统临时拒绝：不能让全屏页因此崩掉
             Log.e(TAG, "start foreground service failed", e);

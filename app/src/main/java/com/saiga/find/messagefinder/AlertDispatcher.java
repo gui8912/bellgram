@@ -262,6 +262,21 @@ public final class AlertDispatcher {
                 session.getFrom(), session.getKeyword(), session.getPerson(),
                 session.getBody(), status, true);
         Log.d(TAG, "posted alert notification, round=" + round);
+        // 【新增 v4.5.9】通知自带的渠道音只响「一声」；本轮设定时长的持续响铃要靠
+        // AlertActivity -> SMSForegroundService。全屏 Intent 亮屏会被降级，故挂一条兜底闹钟。
+        // 诊断里同时记录设定时长与全屏权限，避免「只响一声」再变成黑盒。
+        try {
+            int duration = AppConfig.get(app).getRingDurationSec();
+            boolean fullScreenAllowed = NotificationHelper.canUseFullScreenIntent(app);
+            SmsTrace.add(app, "本轮通知已发出",
+                    "第 " + round + " 轮；设定响铃 "
+                            + (duration <= 0 ? "直到手动停止" : duration + " 秒")
+                            + "；全屏通知权限=" + (fullScreenAllowed ? "允许" : "受限"));
+            AlertScheduler.scheduleRoundFallback(app, round); // 新增 v4.5.9
+        } catch (Exception e) {
+            // 诊断与兜底都是旁路，失败绝不能掐断已经发出的通知
+            Log.w(TAG, "schedule round fallback / trace failed", e);
+        }
     }
 
     /** 发一条静音渠道的通知（只更新文案，不再出声，也不弹全屏页）。 */

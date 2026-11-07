@@ -246,7 +246,15 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
             ringWindowOpen = true;
             if (!startAlarmPlayback()) {
                 Log.w(TAG, "alarm playback failed, fallback to notification sound");
+                // 【新增 v4.5.9】降级只会补「一声」通知音，不会再有 60 秒循环。
+                // 必须留可见原因，否则用户只看到「响一声就停」而无从判断。
+                SmsTrace.skip(this, "铃声播放失败", // 新增 v4.5.9
+                        "系统闹钟音不可用，本轮已降级为一声通知音；请检查系统声音设置"); // 新增 v4.5.9
                 fallbackToNotificationSound();
+            } else {
+                SmsTrace.add(this, "播放服务已启动", // 新增 v4.5.9
+                        "循环播放系统闹钟音，本轮时长=" + (ringDurationSec <= 0
+                                ? "直到手动停止" : ringDurationSec + " 秒")); // 新增 v4.5.9
             }
         } else {
             Log.d(TAG, "ring disabled (user setting or quiet hours), skip playback");
@@ -396,6 +404,9 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
                     stopRingAndVibration(); // modified
                     releasePlayer(); // modified
                     restoreAlarmVolume(); // modified
+                    SmsTrace.skip(SMSForegroundService.this, "铃声播放中断", // 新增 v4.5.9
+                            "MediaPlayer what=" + what + ", extra=" + extra // 新增 v4.5.9
+                                    + "；本轮已降级为一声通知音"); // 新增 v4.5.9
                     fallbackToNotificationSound(); // modified
                     return true;
                 }
