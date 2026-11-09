@@ -26,6 +26,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- modified: mediaPlayback 类型对应的权限；normal 级别，安装即授予 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- 新增 v4.6.3：常驻守护服务使用 specialUse 类型，Android 14+ 需要该类型权限（normal 级） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <!-- 接收短信权限：核心权限，运行时申请 -->
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -150,6 +152,26 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- 新增 v4.6.3：常驻守护服务。
+             背景：HyperOS 会把「不活跃」应用的 SMS_RECEIVED 延迟投递（实测 2~3 分钟且无上限），
+             自启动与电池优化白名单都已开启仍然如此，判定依据是「进程是否存在」。
+             常驻一个前台服务让进程不进入 cached，短信广播就能即时交给已有进程。
+             类型选 specialUse：它既不属于媒体播放，也不属于数据同步；
+             Android 15 已禁止从 BOOT_COMPLETED 启动 dataSync / mediaPlayback /
+             camera / microphone 等类型的前台服务，specialUse 不在禁止名单内，
+             这是唯一能兼顾「开机自启」与「长期运行」的合规选择。
+             stopWithTask=false：用户划掉最近任务卡片不停止守护，否则「清一下后台」就前功尽弃。 -->
+        <service
+            android:name=".GuardService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="keep the SMS keyword alert receiver resident so that incoming SMS broadcasts are processed immediately instead of being deferred by the system" />
+        </service>
     </application>
 
 </manifest>

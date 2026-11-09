@@ -47,6 +47,14 @@ public class BootReceiver extends BroadcastReceiver { // modified: 新增
                     ? context.getApplicationContext() : context; // modified
             // modified: 重启 / 覆盖安装后用户可能还没打开 App，这里补一次音量还原
             AlarmVolumeGuard.restoreIfStale(app); // modified
+            // 【新增 v4.6.3】开机后立刻把常驻守护拉起来。
+            // ROM 判定「应用不活跃」时会延迟投递 SMS_RECEIVED，只有进程常驻才不受影响。
+            // 选 specialUse 类型也是为了让这一步在 Android 15+ 上仍然合法。
+            GuardService.start(app); // 新增 v4.6.3
+            // 【新增 v4.6.3】无论后面有没有待恢复的会话，都记录「开机广播到达」。
+            // 以前这条路径在会话不活跃时一个字都不写，导致「重启后收不到短信」
+            // 无法判断是系统没投递开机广播，还是投递了但短信广播被拦。
+            SmsTrace.add(app, "开机广播已到达", "action=" + action); // 新增 v4.6.3
             AlertSession session = AlertSession.get(app); // modified
             if (!session.isActive()) { // modified
                 Log.d(TAG, "no active alert session, nothing to restore"); // modified

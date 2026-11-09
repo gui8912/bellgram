@@ -55,6 +55,16 @@ public final class NotificationHelper {
     /** 兼容旧调用点的别名（v3 的「降级渠道」语义已废弃）。 */
     public static final String CHANNEL_ID_FALLBACK = CHANNEL_ID_AUDIBLE; // modified: 改为别名
 
+    /**
+     * 【新增 v4.6.3】常驻守护渠道。
+     *
+     * <p>必须与上面两个提醒渠道分开：提醒渠道是 IMPORTANCE_HIGH + 闹铃音，
+     * 而守护通知只是「应用在运行」的常驻提示，用最低重要性、无声、无振动、不上锁屏。
+     * 混用会导致两个后果——要么守护通知跟着响铃，要么提醒被降级成静默。
+     * 渠道声音与重要性创建后不可修改，所以这里用全新 ID，不复用旧的。
+     */
+    public static final String CHANNEL_ID_GUARD = "guard_service_v4"; // 新增 v4.6.3
+
     /** 通知 ID，保持与原实现一致，方便用户清理时对应。 */
     public static final int NOTIFICATION_ID = 123;
 
@@ -62,6 +72,7 @@ public final class NotificationHelper {
     private static final int REQ_STOP = 11;
     private static final int REQ_SNOOZE = 12;
     private static final int REQ_FULLSCREEN = 13;
+    private static final int REQ_GUARD = 14; // 新增 v4.6.3：守护通知点击入口
 
     private static final String EXTRA_FROM = "From";
     private static final String EXTRA_KEYWORD = "Keyword";
@@ -90,6 +101,7 @@ public final class NotificationHelper {
         // 保证 createNotificationChannel() 这一步一定有机会执行。
         createQuietChannel(manager, context);   // modified: 渠道创建相互隔离
         createAudibleChannel(manager, context); // modified: 渠道创建相互隔离
+        createGuardChannel(manager, context);   // 新增 v4.6.3：守护渠道独立创建，失败不影响提醒渠道
         try { // modified
             // modified: 清掉 v3 遗留的旧渠道（声音属性创建后不可改，留着只会在系统设置里多出一条）
             manager.deleteNotificationChannel(CHANNEL_ID_LEGACY_V3); // modified
@@ -148,6 +160,55 @@ public final class NotificationHelper {
             Log.w(TAG, "setBypassDnd unsupported on this ROM", e); // modified
         }
     }
+
+    /**
+     * 【新增 v4.6.3】创建守护渠道。
+     *
+     * <p>IMPORTANCE_MIN：通知栏最底部、无声、无振动、不弹横幅、不上锁屏。
+     * 前台服务必须有可见通知，这是系统硬性要求；除此之外不打扰用户。
+     * 与提醒渠道独立 try：守护渠道创建失败也不能影响两个提醒渠道。
+     */
+    private static void createGuardChannel(NotificationManager manager, Context context) { // 新增 v4.6.3
+        try { // 新增 v4.6.3
+            NotificationChannel guardChannel = new NotificationChannel( // 新增 v4.6.3
+                    CHANNEL_ID_GUARD, // 新增 v4.6.3
+                    context.getString(R.string.guard_channel_name), // 新增 v4.6.3
+                    NotificationManager.IMPORTANCE_MIN); // 新增 v4.6.3
+            guardChannel.setDescription(context.getString(R.string.guard_channel_desc)); // 新增 v4.6.3
+            guardChannel.setSound(null, null); // 新增 v4.6.3
+            guardChannel.enableVibration(false); // 新增 v4.6.3
+            guardChannel.setShowBadge(false); // 新增 v4.6.3
+            guardChannel.setLockscreenVisibility(Notification.VISIBILITY_SECRET); // 新增 v4.6.3
+            manager.createNotificationChannel(guardChannel); // 新增 v4.6.3
+        } catch (Exception e) { // 新增 v4.6.3
+            Log.e(TAG, "create guard channel failed", e); // 新增 v4.6.3
+        } // 新增 v4.6.3
+    } // 新增 v4.6.3
+
+    /**
+     * 【新增 v4.6.3】构建常驻守护通知。
+     *
+     * <p>点击回到主界面；不挂停止按钮——误触会让守护退出、短信重新开始延迟，
+     * 而用户并不知道自己做了什么。要停只能去系统设置里强行停止，这样代价是显式的。
+     */
+    public static Notification buildGuardNotification(Context context) { // 新增 v4.6.3
+        Intent open = new Intent(context, MainActivity.class); // 新增 v4.6.3
+        open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP); // 新增 v4.6.3
+        PendingIntent content = PendingIntent.getActivity(context, REQ_GUARD, open, // 新增 v4.6.3
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE); // 新增 v4.6.3
+        return new NotificationCompat.Builder(context, CHANNEL_ID_GUARD) // 新增 v4.6.3
+                .setSmallIcon(R.drawable.ic_bell_24) // 新增 v4.6.3
+                .setContentTitle(context.getString(R.string.guard_notification_title)) // 新增 v4.6.3
+                .setContentText(context.getString(R.string.guard_notification_text)) // 新增 v4.6.3
+                .setPriority(NotificationCompat.PRIORITY_MIN) // 新增 v4.6.3
+                .setCategory(NotificationCompat.CATEGORY_SERVICE) // 新增 v4.6.3
+                .setOngoing(true) // 新增 v4.6.3：常驻，不可划掉
+                .setSilent(true) // 新增 v4.6.3
+                .setShowWhen(false) // 新增 v4.6.3
+                .setVisibility(NotificationCompat.VISIBILITY_SECRET) // 新增 v4.6.3：不上锁屏
+                .setContentIntent(content) // 新增 v4.6.3
+                .build(); // 新增 v4.6.3
+    } // 新增 v4.6.3
 
     /** 渠道是否真实存在。创建失败 / 被用户在系统设置里删掉时返回 false。 */
     private static boolean channelExists(Context context, String channelId) { // modified: 新增

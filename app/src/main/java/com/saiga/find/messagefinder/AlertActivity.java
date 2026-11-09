@@ -63,6 +63,10 @@ public class AlertActivity extends AppCompatActivity {
         // STREAM_MUSIC。用户听到铃声想按音量键调小，实际改的是媒体音量：铃声一点没小，
         // 退出后音乐/视频的音量却被改乱了。显式绑到闹钟流，音量键才和耳朵听到的一致。
         setVolumeControlStream(AudioManager.STREAM_ALARM); // 新增 v4.6.1
+        // 新增 v4.6.3：本页是用户可见的前台组件，顺带把常驻守护拉起。
+        // 有些用户从不主动打开主界面，只在收到提醒时看到这一页；
+        // 在这里补一次启动，保证守护不会因为「没进过主界面」而始终没起来。
+        GuardService.start(this);
         bindActions();
         bindBackHandling(); // modified: 预测式返回手势
         bindContent(getIntent());

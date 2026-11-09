@@ -46,6 +46,10 @@ public final class SmsTrace {
     private static final String KEY_TRACE = "sms_trace_v456";
     /** 最近一次「被跳过」的原因，命中后清空；首页状态条直接显示它。 */
     private static final String KEY_LAST_SKIP = "sms_trace_last_skip_v456";
+    // 【新增 v4.6.3】进程启动时间。刻意用独立键，不写进 30 条环形轨迹：
+    // 每次冷启动都往轨迹里塞一条，会把真正有价值的短信记录挤掉。
+    private static final String KEY_PROCESS_START = "sms_trace_process_start_v463"; // 新增 v4.6.3
+    private static final String KEY_PROCESS_PREVIOUS = "sms_trace_process_previous_v463"; // 新增 v4.6.3
     private static final int MAX_ENTRIES = 30;
     private static final String LINE_SEPARATOR = "\n";
     private static final String TIME_PATTERN = "MM-dd HH:mm:ss";
@@ -76,6 +80,50 @@ public final class SmsTrace {
         // 派发成功由 SMSReceiver 另记一条「已交给提醒调度」。
         append(context, "规则命中", detail, false, true);
     }
+
+    /**
+     * 【新增 v4.6.3】记录本次进程启动时间，并保留上一次的。
+     *
+     * <p>用途：区分「系统压根没拉起过本应用」与「拉起了但短信广播没到」。
+     * 用户报「重启后不提醒」时，看快照里这两个时间就能判断——
+     * 若重启后系统从未拉起本应用，它们会停留在重启之前。
+     *
+     * <p>写在 Application.onCreate 最前面：即使后面的主题/音量初始化抛异常，
+     * 也能留下「进程来过」的证据。只写两个独立键，不占用 30 条短信轨迹。
+     */
+    public static void markProcessStart(Context context) { // 新增 v4.6.3
+        if (context == null) { // 新增 v4.6.3
+            return; // 新增 v4.6.3
+        } // 新增 v4.6.3
+        synchronized (LOCK) { // 新增 v4.6.3
+            try { // 新增 v4.6.3
+                Context app = context.getApplicationContext() != null // 新增 v4.6.3
+                        ? context.getApplicationContext() : context; // 新增 v4.6.3
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(app); // 新增 v4.6.3
+                String previous = prefs.getString(KEY_PROCESS_START, ""); // 新增 v4.6.3
+                String now = new SimpleDateFormat(TIME_PATTERN, Locale.getDefault()) // 新增 v4.6.3
+                        .format(new Date()); // 新增 v4.6.3
+                prefs.edit() // 新增 v4.6.3
+                        .putString(KEY_PROCESS_PREVIOUS, previous == null ? "" : previous) // 新增 v4.6.3
+                        .putString(KEY_PROCESS_START, now) // 新增 v4.6.3
+                        .commit(); // 新增 v4.6.3：进程随时可能被回收，必须同步落盘
+            } catch (Exception e) { // 新增 v4.6.3
+                // 记不下时间戳也不该影响应用启动
+                Log.w(TAG, "mark process start failed", e); // 新增 v4.6.3
+            } // 新增 v4.6.3
+        } // 新增 v4.6.3
+    } // 新增 v4.6.3
+
+    /** 读取一个时间戳键；读不到时给出「无记录」而不是空串。 */
+    private static String readStamp(Context app, String key) { // 新增 v4.6.3
+        try { // 新增 v4.6.3
+            String value = PreferenceManager.getDefaultSharedPreferences(app) // 新增 v4.6.3
+                    .getString(key, ""); // 新增 v4.6.3
+            return TextUtils.isEmpty(value) ? "无记录" : value; // 新增 v4.6.3
+        } catch (Exception e) { // 新增 v4.6.3
+            return "无记录"; // 新增 v4.6.3
+        } // 新增 v4.6.3
+    } // 新增 v4.6.3
 
     private static void append(Context context, String stage, String detail,
                                boolean skipped, boolean clearSkip) {
@@ -222,6 +270,15 @@ public final class SmsTrace {
             b.append("提醒渠道：").append(NotificationHelper.describeAudibleChannel(app)).append('\n');
             b.append("全屏通知权限：").append(NotificationHelper.canUseFullScreenIntent(app)
                     ? "允许" : "【受限，锁屏不会弹告警页】").append('\n');
+            // 【新增 v4.6.3】进程启动时间与守护状态。
+            // 这是「重启后短信不触发」类问题的直接证据：
+            //   · 两个时间都停在重启之前 → 系统从未拉起过本应用（自启动/广播被拦）
+            //   · 时间更新了但轨迹里没有「收到短信广播」→ 拉起了，广播仍被延迟或丢弃
+            //   · 守护未运行 → 进程随时会被回收，短信必然延迟（部分 ROM 上无上限）
+            b.append("本次进程启动：").append(readStamp(app, KEY_PROCESS_START)).append('\n'); // 新增 v4.6.3
+            b.append("上次进程启动：").append(readStamp(app, KEY_PROCESS_PREVIOUS)).append('\n'); // 新增 v4.6.3
+            b.append("后台守护：").append(GuardService.isRunning() // 新增 v4.6.3
+                    ? "运行中" : "【未运行，短信可能被系统延迟投递】").append('\n'); // 新增 v4.6.3
             // 【新增 v4.6.0】铃声来源进快照：用户换了自定义铃声后若「响一声就停」，
             // 这张截图能立刻区分是自定义文件损坏还是播放服务没起来。
             b.append("当前铃声：").append(AlertRingtone.sourceLabel(app));

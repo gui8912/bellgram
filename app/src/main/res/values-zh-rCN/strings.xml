@@ -31,7 +31,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.6.2</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.6.3</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -205,6 +205,11 @@
     <!-- v4 合规改造：带闹铃音的主渠道 + Android 16 权限体检 -->
     <string name="channel_name_audible">优先短信（闹铃音）</string>
     <string name="channel_desc_audible">命中短信到达时立即播放闹铃音，不依赖后台服务</string>
+    <!-- 新增 v4.6.3：常驻守护的渠道与通知文案 -->
+    <string name="guard_channel_name">后台守护</string>
+    <string name="guard_channel_desc">保持应用在线，避免短信提醒被系统延迟投递；无声音、无振动、不显示在锁屏</string>
+    <string name="guard_notification_title">铃达正在守护</string>
+    <string name="guard_notification_text">短信提醒随时待命，点此打开应用</string>
     <string name="permission_check_key">permission_check</string>
     <string name="permission_check_title">权限体检</string>
     <string name="permission_check_summary">集中检查所有会让提醒失效的系统开关</string>

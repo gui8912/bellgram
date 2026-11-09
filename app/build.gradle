@@ -151,8 +151,22 @@ android {
         //           与 alertDialogTheme，覆盖 MaterialAlertDialogBuilder 与 AlertDialog.Builder
         //           两条构造路径。白天 primaryColor 与 accent_color 同为 #0B57D0，观感不变。
         //           版本号四处同步；配置键名、布局、依赖均未动
-        versionCode 39 // modified: v4.6.2 发布
-        versionName "4.6.2" // modified: v4.6.2 发布
+        // modified: v4.6.3 = 修「关机重启后短信完全不触发」（ROM 延迟投递广播）：
+        //           实测现象：重启后收真实短信毫无反应；点一次「模拟发提醒」后就能用；
+        //           过一会儿又失效；开机后去看系统「应用详情」，2~3 分钟前那条短信才补响。
+        //           结论：SMS_RECEIVED **没有被丢弃，而是被 ROM 压进队列延迟投递**，
+        //           触发条件是「本应用进程是否存在」——自启动已开、电池优化已无限制、
+        //           RECEIVE_SMS 已授予仍然如此，说明这一层已经不可依赖。
+        //           做法：新增 GuardService（specialUse 类型前台服务）常驻，进程不进入 cached，
+        //           广播到达时直接交给已有进程；通知走独立渠道 IMPORTANCE_MIN，无声、无振动、
+        //           不上锁屏、无角标。启动点：MainActivity / AlertActivity（前台必定成功）、
+        //           BOOT_COMPLETED（Android 15 允许 specialUse 从开机广播启动）。
+        //           顺带：BootReceiver 无条件记录「开机广播到达」；诊断快照新增
+        //           「本次/上次进程启动」「后台守护状态」；BellgramApp.onCreate 全包 try/catch
+        //           （原先任一初始化抛异常会让整个应用含所有接收器一起失效）。
+        //           versionCode 39 -> 40；配置键名与存储格式未变，固定签名不变，可直接覆盖升级
+        versionCode 40 // modified: v4.6.3 发布
+        versionName "4.6.3" // modified: v4.6.3 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

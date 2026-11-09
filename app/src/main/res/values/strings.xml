@@ -30,7 +30,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.6.2</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.6.3</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">Privacy Policy</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">Click to view App Privacy Policy</string>
@@ -204,6 +204,11 @@
     <!-- v4 合规改造：带闹铃音的主渠道 + Android 16 权限体检 -->
     <string name="channel_name_audible">Priority SMS (alarm tone)</string>
     <string name="channel_desc_audible">Rings the alarm tone immediately when a matching SMS arrives</string>
+    <!-- 新增 v4.6.3：常驻守护的渠道与通知文案 -->
+    <string name="guard_channel_name">Background guard</string>
+    <string name="guard_channel_desc">Keeps the app resident so SMS alerts are not deferred by the system; silent, no vibration, hidden from lock screen</string>
+    <string name="guard_notification_title">Bellgram is on guard</string>
+    <string name="guard_notification_text">SMS alerts ready, tap to open the app</string>
     <string name="permission_check_key">permission_check</string>
     <string name="permission_check_title">Permission check</string>
     <string name="permission_check_summary">Check every system switch that can silence the alert</string>

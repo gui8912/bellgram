@@ -165,6 +165,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         EdgeToEdgeHelper.apply(this, R.id.user_message_layout);
         // modified: targetSdk 33+ 的 POST_NOTIFICATIONS 属于运行时权限，不申请则通知完全发不出去
         ensureNotificationPermission();
+        // 新增 v4.6.3：用户打开应用时把常驻守护拉起来。
+        // 这是最可靠的一次启动时机——此刻应用在前台，Android 12+ 的后台启动限制不适用。
+        // 若通知权限被拒，服务内部会自己收尾，不会留下半死的前台服务。
+        GuardService.start(this);
         bindStatusPermissionEntry(); // modified: v4.5.2 原底部清单已删，点击能力迁到状态条
 
         appConfig = AppConfig.get(this); // modified: 用实例替代原来的 static SharedPreferences
