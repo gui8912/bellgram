@@ -321,7 +321,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 // 【新增 v4.5.6】最近有短信被跳过时，点状态条直接看接收诊断
                 // （「收到关键词短信却没反应」时这就是答案所在）；否则保持权限体检入口。
                 if (!TextUtils.isEmpty(SmsTrace.lastSkip(MainActivity.this))) {
-                    SmsTrace.showDialog(MainActivity.this);
+                    // modified: v4.6.4 清空后立即刷新状态条，否则「最近未触发」那行仍挂着，
+                    // 用户回到首页会认为清空没生效
+                    SmsTrace.showDialog(MainActivity.this, this::updateStatusUi);
                 } else {
                     PermissionChecker.showDialog(MainActivity.this);
                 }

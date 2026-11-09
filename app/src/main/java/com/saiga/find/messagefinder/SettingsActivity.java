@@ -515,7 +515,8 @@ public class SettingsActivity extends AppCompatActivity {
                 tracePref.setOnPreferenceClickListener(preference -> {
                     Context context = getContext();
                     if (context != null) {
-                        SmsTrace.showDialog(context);
+                        // modified: v4.6.4 清空后刷新本页摘要，否则摘要仍显示旧记录
+                        SmsTrace.showDialog(context, this::refreshActiveConfiguration);
                     }
                     return true;
                 });
@@ -530,7 +531,8 @@ public class SettingsActivity extends AppCompatActivity {
                 hitLogPref.setOnPreferenceClickListener(preference -> {
                     Context context = getContext();
                     if (context != null) {
-                        SmsTrace.showDialog(context);
+                        // modified: v4.6.4 同上，清空命中记录后摘要立即刷新
+                        SmsTrace.showDialog(context, this::refreshActiveConfiguration);
                     }
                     return true;
                 });

@@ -206,23 +206,49 @@ public final class SmsTrace {
         }
     }
 
-    /** 清空诊断记录与最近未触发提示（不动命中记录）。 */
-    public static void clear(Context context) { // 新增 v4.5.6
+    /**
+     * 清空诊断内容，并返回是否真的清掉了。
+     *
+     * <p>【修改 v4.6.4】原来只清「接收轨迹」与「最近未触发」，命中记录留着不动。
+     * 但「清空诊断」这个按钮就在诊断对话框里，用户点完看到的仍是满满一屏
+     * （命中记录还在 + 规则快照本来就是实时状态），必然判定「点了没效果」。
+     * 现在把命中记录一起清掉，并在轨迹里留一条「诊断已清空」作为操作凭据：
+     * 既能让用户当场看到「确实清空了」，也避免清空后落到空态文案
+     * 「还没有收到过短信广播…系统没把广播投递给本应用」——那会把用户引向错误方向。
+     *
+     * <p>不动的只有「当前规则与权限」：那是实时读出来的状态，清空它没有意义。
+     *
+     * @return true 表示已落盘；false 表示写盘失败（调用方必须如实告知用户，
+     *         不能像旧实现那样无论如何都弹「已清空」）
+     */
+    public static boolean clear(Context context) { // modified: v4.6.4 返回是否成功
         if (context == null) {
-            return;
+            return false;
         }
+        Context app = context.getApplicationContext() != null
+                ? context.getApplicationContext() : context;
+        boolean ok;
         synchronized (LOCK) {
             try {
-                Context app = context.getApplicationContext() != null
-                        ? context.getApplicationContext() : context;
-                PreferenceManager.getDefaultSharedPreferences(app).edit()
+                // commit() 的返回值必须看：磁盘满或 SP 损坏时 remove 不会落盘，
+                // 旧实现照样弹「已清空」，用户下次打开发现记录还在。
+                ok = PreferenceManager.getDefaultSharedPreferences(app).edit()
                         .remove(KEY_TRACE)
                         .remove(KEY_LAST_SKIP)
                         .commit();
             } catch (Exception e) {
                 Log.w(TAG, "clear trace failed", e);
+                return false;
             }
         }
+        if (!ok) {
+            return false;
+        }
+        // 命中记录同属「诊断」内容（v4.6.4）；独立入口「清空命中记录」仍然保留。
+        HitLog.clear(app); // 新增 v4.6.4
+        // 留一条操作凭据：清空后轨迹不为空，不再误显示「系统没投递广播」的空态文案。
+        add(app, "诊断已清空", "由用户手动清空，之后的新记录从这条开始"); // 新增 v4.6.4
+        return true;
     }
 
     /**
@@ -295,6 +321,20 @@ public final class SmsTrace {
      * 用户实测一条短信就能看出卡在哪一步。
      */
     public static void showDialog(Context context) { // 新增 v4.5.6
+        showDialog(context, null); // modified: v4.6.4 转到带回调的重载
+    }
+
+    /**
+     * 同上，并允许调用方在「清空成功」后刷新自己的界面。
+     *
+     * <p>【新增 v4.6.4】设置页的「接收诊断 / 最近命中记录」两项摘要是在
+     * onResume 与配置变更时刷新的，对话框关闭并不会触发 onResume，
+     * 所以清空后摘要仍显示旧内容，看起来又像「没清掉」。这里给一个回调让调用方
+     * 主动刷新，语义上也不会让 SmsTrace 反向依赖某个 Activity。
+     *
+     * @param onCleared 清空成功后的回调，可为 null
+     */
+    public static void showDialog(Context context, Runnable onCleared) { // 新增 v4.6.4
         if (context == null) {
             return;
         }
@@ -316,10 +356,31 @@ public final class SmsTrace {
                     // 把「看出问题」和「修掉问题」之间的步骤压到一次点击。
                     .setPositiveButton(R.string.sms_trace_notif_settings,
                             (dialog, which) -> openNotificationSettings(context))
+                    // 【修改 v4.6.4】清空之后立刻重建对话框，让「清空」当场可见。
+                    // 旧实现只弹一个 Toast，用户重新打开仍是一屏文字（命中记录没清、
+                    // 规则快照又是实时状态），于是反馈「点击清空诊断没有效果」。
+                    // 现在同时清命中记录、写一条「诊断已清空」凭据、并刷新调用方摘要。
                     .setNeutralButton(R.string.sms_trace_clear, (dialog, which) -> {
-                        clear(context);
+                        if (!clear(context)) {
+                            // 落盘失败必须说出来，不能假装成功
+                            Toast.makeText(context, R.string.sms_trace_clear_failed,
+                                    Toast.LENGTH_LONG).show();
+                            return;
+                        }
                         Toast.makeText(context, R.string.sms_trace_cleared,
                                 Toast.LENGTH_SHORT).show();
+                        if (onCleared != null) {
+                            try {
+                                onCleared.run();
+                            } catch (Exception e) {
+                                Log.w(TAG, "refresh after clear failed", e);
+                            }
+                        }
+                        // 只有 Activity 才能安全地再弹一个对话框；
+                        // 若 context 是 ApplicationContext，重建会抛 BadToken，直接跳过。
+                        if (context instanceof android.app.Activity) {
+                            showDialog(context, onCleared);
+                        }
                     })
                     .show();
         } catch (Exception e) {

@@ -165,8 +165,24 @@ android {
         //           「本次/上次进程启动」「后台守护状态」；BellgramApp.onCreate 全包 try/catch
         //           （原先任一初始化抛异常会让整个应用含所有接收器一起失效）。
         //           versionCode 39 -> 40；配置键名与存储格式未变，固定签名不变，可直接覆盖升级
-        versionCode 40 // modified: v4.6.3 发布
-        versionName "4.6.3" // modified: v4.6.3 发布
+        // modified: v4.6.4 = 修「点清空诊断没有效果」：
+        //           现象：诊断对话框里点「清空诊断」，重新打开仍是一屏文字，看起来没清。
+        //           根因不在 remove 本身（KEY_TRACE / KEY_LAST_SKIP 确实被清掉了），
+        //           而在对话框有三段内容，旧 clear() 只清第一段：
+        //             · 接收轨迹        —— 清掉了
+        //             · 当前规则与权限  —— 实时状态，永远在（本来就不该清）
+        //             · 最近命中记录    —— 旧实现刻意不动，仍原样显示
+        //           再加上「清空后只弹一个 Toast、对话框直接关闭」，用户无从看到变化。
+        //           改法：① clear() 一并清命中记录，并往轨迹写一条「诊断已清空」凭据
+        //           （顺带避免清空后落到「系统没投递广播」的空态告警文案，那会误导方向）；
+        //           ② clear() 返回 boolean，commit 失败时如实提示「清空失败」，不再假成功；
+        //           ③ 清空成功后立刻重建对话框，当场显示空态；
+        //           ④ 新增 showDialog(ctx, Runnable)，设置页借此立即刷新两项摘要
+        //           （对话框关闭不触发 onResume，否则摘要仍是旧的，又像没清）。
+        //           只改文案与诊断旁路，提醒主链路一行未动。
+        //           versionCode 40 -> 41；配置键名与存储格式未变，固定签名不变，可直接覆盖升级
+        versionCode 41 // modified: v4.6.4 发布
+        versionName "4.6.4" // modified: v4.6.4 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

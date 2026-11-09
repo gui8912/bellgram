@@ -31,7 +31,7 @@
          clear_button / cleared -> v4.4.0 首页「清除配置」迁入设置页后遗留；
          channel_name_fallback / channel_desc_fallback -> 早期渠道兜底，从未被引用。
          功能入口均已迁移，此处仅清死资源。 -->
-    <string name="current_app_version">4.6.3</string> <!-- modified: 同步界面版本号 -->
+    <string name="current_app_version">4.6.4</string> <!-- modified: 同步界面版本号 -->
     <string name="app_privacy_policy">隐私政策</string>
     <string name="privacy_url">https://unchartedtech.work/privacy-policy</string> <!-- modified: usesCleartextTraffic=false 下 http 明文外链会被拦截 -->
     <string name="user_guidance">点击查看应用隐私政策</string>
@@ -288,10 +288,11 @@
     <string name="sms_trace_title">接收诊断</string>
     <string name="sms_trace_summary">查看最近每条短信的完整处理过程：是否收到广播、号码、关键词、通知</string>
     <string name="sms_trace_empty">还没有收到过短信广播。若手机确实收到了短信，说明系统没把广播投递给本应用：请检查接收短信权限、自启动与电池白名单。</string>
-    <string name="sms_trace_dialog_body">接收轨迹（最新在上）：\n\n%1$s\n\n当前规则与权限：\n%2$s\n\n最近命中记录：\n\n%3$s</string>
+    <string name="sms_trace_dialog_body">接收轨迹（最新在上，会被「清空诊断」清掉）：\n\n%1$s\n\n当前规则与权限（实时状态，不受清空影响）：\n%2$s\n\n最近命中记录（会被「清空诊断」清掉）：\n\n%3$s</string>
     <string name="sms_trace_clear">清空诊断</string>
     <string name="sms_trace_notif_settings">通知设置</string>
-    <string name="sms_trace_cleared">接收诊断已清空</string>
+    <string name="sms_trace_cleared">接收轨迹与命中记录已清空</string>
+    <string name="sms_trace_clear_failed">清空失败：本地存储写入被拒，记录仍在。请重启手机后再试。</string>
     <string name="sms_trace_last_skip">最近未触发：%1$s</string>
     <string name="status_last_skip">最近短信未触发：%1$s · 点此看诊断</string>
     <string name="keyword_library_need_sms_permission">关键词已保存，但还需授予短信权限，否则收不到提醒</string>
