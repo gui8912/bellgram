@@ -17,9 +17,11 @@ import android.Manifest; // 新增 v4.5.7
 import android.content.Context;
 import android.content.Intent; // 新增 v4.6.1：诊断对话框直达通知设置
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo; // 新增 v4.6.5
 import android.content.pm.PackageManager; // 新增 v4.5.7
 import android.net.Uri; // 新增 v4.6.1
 import android.os.Build; // 新增 v4.6.1
+import android.os.SystemClock; // 新增 v4.6.5
 import android.provider.Settings; // 新增 v4.6.1
 import android.text.TextUtils;
 import android.util.Log;
@@ -50,6 +52,10 @@ public final class SmsTrace {
     // 每次冷启动都往轨迹里塞一条，会把真正有价值的短信记录挤掉。
     private static final String KEY_PROCESS_START = "sms_trace_process_start_v463"; // 新增 v4.6.3
     private static final String KEY_PROCESS_PREVIOUS = "sms_trace_process_previous_v463"; // 新增 v4.6.3
+    /** 【新增 v4.6.5】本次开机是否收到过 BOOT_COMPLETED 的时间戳（毫秒），用于首页自启异常提示。 */
+    private static final String KEY_BOOT_BROADCAST_MS = "sms_trace_boot_broadcast_ms_v465"; // 新增 v4.6.5
+    /** 【新增 v4.6.5】开机后 10 分钟内不判定异常，给系统投递广播和用户解锁留时间。 */
+    private static final long BOOT_WARN_GRACE_MS = 10 * 60 * 1000L; // 新增 v4.6.5
     private static final int MAX_ENTRIES = 30;
     private static final String LINE_SEPARATOR = "\n";
     private static final String TIME_PATTERN = "MM-dd HH:mm:ss";
@@ -113,6 +119,72 @@ public final class SmsTrace {
             } // 新增 v4.6.3
         } // 新增 v4.6.3
     } // 新增 v4.6.3
+
+    /**
+     * 【新增 v4.6.5】记录「本次开机已收到 BOOT_COMPLETED」。
+     *
+     * <p>只由 BootReceiver 在 BOOT_COMPLETED（解锁后）调用；LOCKED_BOOT_COMPLETED
+     * 阶段凭据加密存储不可用，写不了，等解锁后的 BOOT_COMPLETED 再写。
+     */
+    public static void recordBootCompleted(Context context) { // 新增 v4.6.5
+        if (context == null) { // 新增 v4.6.5
+            return; // 新增 v4.6.5
+        } // 新增 v4.6.5
+        synchronized (LOCK) { // 新增 v4.6.5
+            try { // 新增 v4.6.5
+                Context app = context.getApplicationContext() != null // 新增 v4.6.5
+                        ? context.getApplicationContext() : context; // 新增 v4.6.5
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(app); // 新增 v4.6.5
+                prefs.edit() // 新增 v4.6.5
+                        .putLong(KEY_BOOT_BROADCAST_MS, System.currentTimeMillis()) // 新增 v4.6.5
+                        .commit(); // 新增 v4.6.5
+            } catch (Exception e) { // 新增 v4.6.5
+                Log.w(TAG, "record boot broadcast failed", e); // 新增 v4.6.5
+            } // 新增 v4.6.5
+        } // 新增 v4.6.5
+    } // 新增 v4.6.5
+
+    /**
+     * 【新增 v4.6.5】首页是否应提示「开机自启异常」。
+     *
+     * <p>判定条件（全部满足才提示，避免误报）：
+     * <ol>
+     *   <li>本次开机已超过 10 分钟（给系统投递广播/用户解锁留时间）；</li>
+     *   <li>本次开机没有收到过 BOOT_COMPLETED（时间戳早于本次开机时刻）；</li>
+     *   <li>应用不是本次开机之后才安装的（新装用户还没经历完整开机流程）。</li>
+     * </ol>
+     */
+    public static boolean shouldWarnBootMissing(Context context) { // 新增 v4.6.5
+        if (context == null) { // 新增 v4.6.5
+            return false; // 新增 v4.6.5
+        } // 新增 v4.6.5
+        try { // 新增 v4.6.5
+            long uptime = SystemClock.elapsedRealtime(); // 新增 v4.6.5
+            if (uptime < BOOT_WARN_GRACE_MS) { // 新增 v4.6.5
+                return false; // 新增 v4.6.5
+            } // 新增 v4.6.5
+            Context app = context.getApplicationContext() != null // 新增 v4.6.5
+                    ? context.getApplicationContext() : context; // 新增 v4.6.5
+            long bootWall = System.currentTimeMillis() - uptime; // 新增 v4.6.5
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(app); // 新增 v4.6.5
+            long cast = prefs.getLong(KEY_BOOT_BROADCAST_MS, 0L); // 新增 v4.6.5
+            if (cast >= bootWall - 60_000L) { // 新增 v4.6.5
+                return false; // 本次开机已收到，正常
+            } // 新增 v4.6.5
+            try { // 新增 v4.6.5
+                PackageInfo info = app.getPackageManager() // 新增 v4.6.5
+                        .getPackageInfo(app.getPackageName(), 0); // 新增 v4.6.5
+                if (info.firstInstallTime > bootWall) { // 新增 v4.6.5
+                    return false; // 开机后才安装，还没经历过完整开机
+                } // 新增 v4.6.5
+            } catch (Exception ignored) { // 新增 v4.6.5
+                // 拿不到安装时间就按「可能异常」继续判断
+            } // 新增 v4.6.5
+            return true; // 新增 v4.6.5
+        } catch (Exception e) { // 新增 v4.6.5
+            return false; // 新增 v4.6.5
+        } // 新增 v4.6.5
+    } // 新增 v4.6.5
 
     /** 读取一个时间戳键；读不到时给出「无记录」而不是空串。 */
     private static String readStamp(Context app, String key) { // 新增 v4.6.3
@@ -305,6 +377,18 @@ public final class SmsTrace {
             b.append("上次进程启动：").append(readStamp(app, KEY_PROCESS_PREVIOUS)).append('\n'); // 新增 v4.6.3
             b.append("后台守护：").append(GuardService.isRunning() // 新增 v4.6.3
                     ? "运行中" : "【未运行，短信可能被系统延迟投递】").append('\n'); // 新增 v4.6.3
+            // 【新增 v4.6.5】本次开机时间 + 兜底任务状态。
+            // 「本次开机 → 本次进程启动」隔了很久，就是「开机没被拉起」的直接证据；
+            // 兜底任务未注册，则说明 JobScheduler 这条后路也没挂上。
+            try { // 新增 v4.6.5
+                long bootWall = System.currentTimeMillis() - SystemClock.elapsedRealtime(); // 新增 v4.6.5
+                b.append("本次开机：").append(new SimpleDateFormat(TIME_PATTERN, Locale.getDefault()) // 新增 v4.6.5
+                        .format(new Date(bootWall))).append('\n'); // 新增 v4.6.5
+            } catch (Exception e) { // 新增 v4.6.5
+                b.append("本次开机：读取失败\n"); // 新增 v4.6.5
+            } // 新增 v4.6.5
+            b.append("开机兜底任务：").append(BootFallbackScheduler.isScheduled(app) // 新增 v4.6.5
+                    ? "已注册" : "【未注册，开机广播未投递时会少一层保险】").append('\n'); // 新增 v4.6.5
             // 【新增 v4.6.0】铃声来源进快照：用户换了自定义铃声后若「响一声就停」，
             // 这张截图能立刻区分是自定义文件损坏还是播放服务没起来。
             b.append("当前铃声：").append(AlertRingtone.sourceLabel(app));

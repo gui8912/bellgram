@@ -27,6 +27,13 @@ public class BellgramApp extends Application { // modified
         super.onCreate(); // modified
         // 先记时间戳再跑初始化：即使下面某一步抛异常，也能留下「进程启动过」的证据
         SmsTrace.markProcessStart(this); // 新增 v4.6.3
+        // 【新增 v4.6.5】每次进程启动都确保「开机兜底任务」在系统里注册着。
+        // 它是 BOOT_COMPLETED 之外的第二条拉起路径，失败了也只少一层保险。
+        try { // 新增 v4.6.5
+            BootFallbackScheduler.ensureScheduled(this); // 新增 v4.6.5
+        } catch (Exception e) { // 新增 v4.6.5
+            Log.w(TAG, "ensure boot fallback failed", e); // 新增 v4.6.5
+        } // 新增 v4.6.5
         try { // 新增 v4.6.3
             ThemeHelper.applySavedMode(this); // modified
         } catch (Exception e) { // 新增 v4.6.3

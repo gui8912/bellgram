@@ -227,6 +227,8 @@
     <!-- modified: v4.5.0 mark recommended-only checks so the home screen stops flagging them as errors -->
     <string name="perm_item_optional_hint"> (recommended, not required)</string>
     <string name="status_permission_warning">! %1$d permission item(s) not ready - tap the checklist below</string>
+    <!-- 新增 v4.6.5：本次开机没收到 BOOT_COMPLETED，提示用户自启动可能被拦 -->
+    <string name="status_boot_warning">! No boot broadcast received this boot - auto-start may be blocked. Tap for diagnostics.</string>
     <string name="notif_permission_denied">Notifications are off - the alarm cannot be delivered</string>
     <!-- modified: v4.3.0 新增设置项文案；*_key 用作 SharedPreferences 键，禁止翻译 -->
     <string name="pref_category_appearance">Appearance</string>

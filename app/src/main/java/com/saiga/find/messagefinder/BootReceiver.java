@@ -18,6 +18,8 @@ package com.saiga.find.messagefinder;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build; // 新增 v4.6.5
+import android.os.UserManager; // 新增 v4.6.5
 import android.util.Log;
 
 public class BootReceiver extends BroadcastReceiver { // modified: 新增
@@ -30,9 +32,14 @@ public class BootReceiver extends BroadcastReceiver { // modified: 新增
             return;
         }
         String action = intent.getAction(); // modified
+        // 【新增 v4.6.5】direct boot：首次解锁前会先收到 LOCKED_BOOT_COMPLETED。
+        // 此时凭据加密存储（本应用的 SharedPreferences）不可用，所以这条分支只做
+        // 「不读配置」的事——拉起 GuardService（只用资源与通知），其余留到解锁后。
+        final boolean lockedBoot = Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action); // 新增 v4.6.5
         // modified: MY_PACKAGE_REPLACED 同样会清掉本应用的闹钟（覆盖安装 / 应用更新）
         final boolean bootOrUpdate = Intent.ACTION_BOOT_COMPLETED.equals(action) // modified
-                || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action); // modified
+                || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action) // modified
+                || lockedBoot; // 新增 v4.6.5
         // modified: v4.5.0 补「时间/时区被修改」。setAlarmClock 用的是 RTC 绝对时刻，
         // 用户手动改系统时间会让排队中的那一轮提前或推迟（时区变更只影响显示，不影响绝对时刻）。
         // 参考 NeoAlarm / RecurringReminders 的做法：这两类广播到来时只「重新挂好下一轮」，
@@ -45,16 +52,25 @@ public class BootReceiver extends BroadcastReceiver { // modified: 新增
         try { // modified
             Context app = context.getApplicationContext() != null // modified
                     ? context.getApplicationContext() : context; // modified
+            // 【新增 v4.6.5】先拉起守护、再注册兜底任务——这两步不读凭据加密存储，
+            // 在 LOCKED_BOOT_COMPLETED（首次解锁前）也能执行。
+            GuardService.start(app); // 新增 v4.6.5
+            BootFallbackScheduler.ensureScheduled(app); // 新增 v4.6.5
+            if (lockedBoot || !isUserUnlocked(app)) { // 新增 v4.6.5
+                Log.i(TAG, "locked boot: guard started, skip credential storage"); // 新增 v4.6.5
+                return; // 新增 v4.6.5
+            } // 新增 v4.6.5
             // modified: 重启 / 覆盖安装后用户可能还没打开 App，这里补一次音量还原
             AlarmVolumeGuard.restoreIfStale(app); // modified
-            // 【新增 v4.6.3】开机后立刻把常驻守护拉起来。
-            // ROM 判定「应用不活跃」时会延迟投递 SMS_RECEIVED，只有进程常驻才不受影响。
-            // 选 specialUse 类型也是为了让这一步在 Android 15+ 上仍然合法。
-            GuardService.start(app); // 新增 v4.6.3
             // 【新增 v4.6.3】无论后面有没有待恢复的会话，都记录「开机广播到达」。
             // 以前这条路径在会话不活跃时一个字都不写，导致「重启后收不到短信」
             // 无法判断是系统没投递开机广播，还是投递了但短信广播被拦。
             SmsTrace.add(app, "开机广播已到达", "action=" + action); // 新增 v4.6.3
+            // 【新增 v4.6.5】标记「本次开机已收到 BOOT_COMPLETED」，供首页自启异常提示使用。
+            // 只在真正的 BOOT_COMPLETED 写；MY_PACKAGE_REPLACED 不是开机，不能算。
+            if (Intent.ACTION_BOOT_COMPLETED.equals(action)) { // 新增 v4.6.5
+                SmsTrace.recordBootCompleted(app); // 新增 v4.6.5
+            } // 新增 v4.6.5
             AlertSession session = AlertSession.get(app); // modified
             if (!session.isActive()) { // modified
                 Log.d(TAG, "no active alert session, nothing to restore"); // modified
@@ -79,4 +95,23 @@ public class BootReceiver extends BroadcastReceiver { // modified: 新增
             Log.e(TAG, "restore alert session failed", e); // modified
         }
     }
+
+    /**
+     * 【新增 v4.6.5】判断当前用户是否已解锁（凭据加密存储是否可用）。
+     *
+     * <p>API 24 以下没有 direct boot，恒为 true。任何异常都按「已解锁」处理：
+     * 宁可多做一次配置操作，也不能因此挡住开机恢复。
+     */
+    private static boolean isUserUnlocked(Context context) { // 新增 v4.6.5
+        try { // 新增 v4.6.5
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) { // 新增 v4.6.5
+                UserManager manager = (UserManager) context.getSystemService(Context.USER_SERVICE); // 新增 v4.6.5
+                return manager == null || manager.isUserUnlocked(); // 新增 v4.6.5
+            } // 新增 v4.6.5
+            return true; // 新增 v4.6.5
+        } catch (Exception e) { // 新增 v4.6.5
+            Log.w(TAG, "isUserUnlocked failed, assume unlocked", e); // 新增 v4.6.5
+            return true; // 新增 v4.6.5
+        } // 新增 v4.6.5
+    } // 新增 v4.6.5
 }

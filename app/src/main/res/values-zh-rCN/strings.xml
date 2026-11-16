@@ -228,6 +228,8 @@
     <!-- modified: v4.5.0 区分「必需」与「建议」，避免电池优化未加白名单时主界面常年报警 -->
     <string name="perm_item_optional_hint">（建议开启，非必需）</string>
     <string name="status_permission_warning">! 有 %1$d 项权限未就绪 —— 点下方清单去处理</string>
+    <!-- 新增 v4.6.5：本次开机没收到 BOOT_COMPLETED，提示用户自启动可能被拦 -->
+    <string name="status_boot_warning">! 本次开机未收到开机广播，自启动可能被系统拦截 —— 点这里查看诊断</string>
     <string name="notif_permission_denied">通知权限未开启，提醒无法送达</string>
     <!-- modified: v4.3.0 新增设置项文案；*_key 用作 SharedPreferences 键，禁止翻译 -->
     <string name="pref_category_appearance">外观</string>

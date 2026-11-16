@@ -103,9 +103,12 @@
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- 新增 v4.6.5：首次解锁前先拉起守护；配置类操作等解锁后再做 -->
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <!-- modified: v4.5.0 手动改系统时间会让排队中的 RTC 闹钟提前/推迟，需要重新挂 -->
                 <action android:name="android.intent.action.TIME_SET" />
@@ -166,12 +169,22 @@
             android:name=".GuardService"
             android:enabled="true"
             android:exported="false"
+            android:directBootAware="true"
             android:foregroundServiceType="specialUse"
             android:stopWithTask="false">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="keep the SMS keyword alert receiver resident so that incoming SMS broadcasts are processed immediately instead of being deferred by the system" />
         </service>
+
+        <!-- 新增 v4.6.5：BOOT_COMPLETED 之外的第二条拉起路径。
+             JobScheduler 持久化任务由系统在重启后重新调度；即使开机广播没送到，
+             它也能把进程拉起来并启动 GuardService。需 BIND_JOB_SERVICE 权限。 -->
+        <service
+            android:name=".BootJobService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
     </application>
 
 </manifest>

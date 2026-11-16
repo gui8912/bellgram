@@ -181,8 +181,20 @@ android {
         //           （对话框关闭不触发 onResume，否则摘要仍是旧的，又像没清）。
         //           只改文案与诊断旁路，提醒主链路一行未动。
         //           versionCode 40 -> 41；配置键名与存储格式未变，固定签名不变，可直接覆盖升级
-        versionCode 41 // modified: v4.6.4 发布
-        versionName "4.6.4" // modified: v4.6.4 发布
+        // modified: v4.6.5 = 开机自启兜底：
+        //           ① BootReceiver 增加 directBootAware + LOCKED_BOOT_COMPLETED，
+        //              首次解锁前先把 GuardService 拉起来（不读凭据加密存储）；
+        //           ② 新增 JobScheduler 持久化兜底任务（BootFallbackScheduler /
+        //              BootJobService）：BOOT_COMPLETED 未投递时，系统重启后仍会
+        //              按 15 分钟周期执行该任务，把进程拉起来；
+        //           ③ 开机路径调整为先起守护、再读配置，避免未解锁时 prefs 异常
+        //              把守护启动一起吞掉；
+        //           ④ 兜底任务加健康自检：守护没在跑才拉起并记一条诊断，正常时不刷日志；
+        //           ⑤ 首页状态条加「本次开机未收到开机广播」提示（基于 BOOT_COMPLETED
+        //              时间戳与开机时刻比较，避开新装/解锁延迟的误报）。
+        //           versionCode 41 -> 42；固定签名不变，可直接覆盖升级
+        versionCode 42 // modified: v4.6.5 发布
+        versionName "4.6.5" // modified: v4.6.5 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

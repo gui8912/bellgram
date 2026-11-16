@@ -367,6 +367,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             statusText.append("\n" + getString(R.string.status_permission_warning, missing));
             statusText.setTextColor(getColor(R.color.alert_accent));
         }
+        // 【新增 v4.6.5】本次开机没收到 BOOT_COMPLETED：系统可能在拦开机自启。
+        // 直接写在状态条上，用户不用自己翻诊断就能知道「今天开机后没被拉起来」。
+        if (SmsTrace.shouldWarnBootMissing(this)) { // 新增 v4.6.5
+            statusText.append("\n" + getString(R.string.status_boot_warning)); // 新增 v4.6.5
+            statusText.setTextColor(getColor(R.color.alert_accent)); // 新增 v4.6.5
+        } // 新增 v4.6.5
     }
 
     /**
