@@ -20,6 +20,7 @@
     <string name="sms_config_key">notification_key</string>
 
     <string name="app_version">应用版本</string>
+    <string name="app_version_unknown">未知</string>
     <string name="app_version_key">app_version_key</string>
     <!-- modified: v4.5.2 【删除】app_tagline（首屏简介）与 permission_tip
          （红米 / HyperOS 必做四步）：对应控件已从 activity_main.xml 移除，

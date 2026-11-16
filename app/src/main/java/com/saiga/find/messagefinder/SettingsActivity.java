@@ -232,7 +232,7 @@ public class SettingsActivity extends AppCompatActivity {
             if (pref == null) { // 新增 v4.6.7
                 return; // 新增 v4.6.7
             } // 新增 v4.6.7
-            String version = BuildConfig.VERSION_NAME; // 新增 v4.6.7
+            String version = null; // 新增 v4.6.7
             try { // 新增 v4.6.7
                 Context context = getContext(); // 新增 v4.6.7
                 if (context != null) { // 新增 v4.6.7
@@ -240,9 +240,10 @@ public class SettingsActivity extends AppCompatActivity {
                             .getPackageInfo(context.getPackageName(), 0).versionName; // 新增 v4.6.7
                 } // 新增 v4.6.7
             } catch (Exception e) { // 新增 v4.6.7
-                // 读不到就用编译期版本，至少不会显示上一次的旧值
+                // 读不到就显示「未知」，绝不回退到写死的旧值
             } // 新增 v4.6.7
-            pref.setSummary(version); // 新增 v4.6.7
+            pref.setSummary(version == null || version.isEmpty() // 新增 v4.6.7
+                    ? getString(R.string.app_version_unknown) : version); // 新增 v4.6.7
         } // 新增 v4.6.7
 
         /** 分发 5 个固定选项。说明对话框延后一帧，避免与正在 dismiss 的选项框叠加。 */
