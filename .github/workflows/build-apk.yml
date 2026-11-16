@@ -113,7 +113,7 @@ jobs:
 
       # 【新增 v4.6.6】把构建产物同时发布到 GitHub Release，方便公开下载。
       # artifact 需要登录、30 天过期；Release 是永久的公开资产。
-      # 版本号取自 app/build.gradle 的 versionName，推 main 时自动创建/更新 v<version>。
+      # 标题与正文取自 RELEASE_NOTES.md；APK 命名为 bellgram-<version>.apk。
       - name: Publish release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
@@ -121,12 +121,30 @@ jobs:
         run: |
           set -e
           VERSION=$(grep -m1 'versionName "' app/build.gradle | sed 's/.*"\(.*\)".*/\1/')
-          echo "publishing v$VERSION"
-          if ! gh release view "v$VERSION" >/dev/null 2>&1; then
-            gh release create "v$VERSION" --title "v$VERSION" \
-              --notes "自动构建 ${GITHUB_SHA}"
+          TAG="v$VERSION"
+          echo "publishing $TAG"
+
+          # 每个版本在 RELEASE_NOTES.md 里用「## vX.Y.Z · 摘要」开头
+          TITLE=$(awk -v tag="$TAG" 'index($0, "## " tag " ")==1 {sub(/^## /,""); print; exit}' RELEASE_NOTES.md)
+          [ -n "$TITLE" ] || TITLE="$TAG"
+          BODY=$(awk -v tag="$TAG" 'index($0, "## " tag " ")==1 {f=1; next} /^## v[0-9]/ {f=0} f' RELEASE_NOTES.md)
+          if [ -n "$BODY" ]; then
+            printf '%s\n' "$BODY" > release-notes.txt
+          else
+            printf '# %s\n\n%s\n' "$TITLE" "$(git log -1 --pretty=%s)" > release-notes.txt
           fi
-          gh release upload "v$VERSION" app/build/outputs/apk/debug/*.apk --clobber
+
+          # APK 改用 bellgram-<版本>.apk，和旧 Release 的命名一致
+          cp app/build/outputs/apk/debug/app-debug.apk "bellgram-$VERSION.apk"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes-file release-notes.txt
+            # 清掉早期自动发布时留下的 app-debug.apk，避免同一个包出现两份
+            gh release delete-asset "$TAG" app-debug.apk --yes >/dev/null 2>&1 || true
+          else
+            gh release create "$TAG" --title "$TITLE" --notes-file release-notes.txt
+          fi
+          gh release upload "$TAG" "bellgram-$VERSION.apk" --clobber
 
       - name: Upload test report on failure
         if: failure()
