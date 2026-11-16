@@ -250,8 +250,7 @@
             android:icon="@drawable/ic_bell_24"
             android:key="@string/app_version_key"
             android:enabled="false"
-            android:shouldDisableView="false"
-            android:summary="@string/current_app_version"/>
+            android:shouldDisableView="false"/>
 
         <Preference android:title="@string/hit_log"
             android:icon="@drawable/ic_tune_24"

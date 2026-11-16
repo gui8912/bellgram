@@ -220,6 +220,31 @@ public class SettingsActivity extends AppCompatActivity {
             }); // 新增
         } // 新增
 
+        /**
+         * 【新增 v4.6.7】「应用版本」改为运行时读取。
+         *
+         * <p>旧实现是 strings.xml 里的 current_app_version，每个版本都要手动同步；
+         * 漏改时界面就会一直显示旧版本（装完 4.6.6 仍显示 4.6.4）。
+         * 这里直接读 PackageManager 的 versionName，永远与已安装的 APK 一致。
+         */
+        private void bindAppVersionSummary() { // 新增 v4.6.7
+            Preference pref = findPreference(getString(R.string.app_version_key)); // 新增 v4.6.7
+            if (pref == null) { // 新增 v4.6.7
+                return; // 新增 v4.6.7
+            } // 新增 v4.6.7
+            String version = BuildConfig.VERSION_NAME; // 新增 v4.6.7
+            try { // 新增 v4.6.7
+                Context context = getContext(); // 新增 v4.6.7
+                if (context != null) { // 新增 v4.6.7
+                    version = context.getPackageManager() // 新增 v4.6.7
+                            .getPackageInfo(context.getPackageName(), 0).versionName; // 新增 v4.6.7
+                } // 新增 v4.6.7
+            } catch (Exception e) { // 新增 v4.6.7
+                // 读不到就用编译期版本，至少不会显示上一次的旧值
+            } // 新增 v4.6.7
+            pref.setSummary(version); // 新增 v4.6.7
+        } // 新增 v4.6.7
+
         /** 分发 5 个固定选项。说明对话框延后一帧，避免与正在 dismiss 的选项框叠加。 */
         private void handleRingtoneChoice(Context context, int which) { // 新增 v4.6.0
             switch (which) { // 新增
@@ -414,6 +439,7 @@ public class SettingsActivity extends AppCompatActivity {
             bindInteractivePreferences(); // modified
             bindListPreferenceDialogs(); // modified: v4.4.0 显式接管全部下拉设置项
             bindCustomRingtonePreference(); // 新增 v4.6.0：自定义提醒铃声入口
+            bindAppVersionSummary(); // 新增 v4.6.7：版本号改为运行时读取，不再写死
 
             Preference autoSuggestionPref = findPreference(getString(R.string.auto_suggestion_key));
             if (autoSuggestionPref != null) {

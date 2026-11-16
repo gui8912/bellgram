@@ -200,8 +200,13 @@ android {
         //           官方豁免项；而旧实现只 startActivity，后台启动 Activity 会被
         //           系统静默拦截（不抛异常），导致整轮只剩一条静音通知。
         //           versionCode 42 -> 43；固定签名不变，可直接覆盖升级
-        versionCode 43 // modified: v4.6.6 发布
-        versionName "4.6.6" // modified: v4.6.6 发布
+        // modified: v4.6.7 = 修复「装完新版本，设置页仍显示旧版本号」：
+        //           根因是「应用版本」摘要来自写死的 strings.xml current_app_version，
+        //           每次发版忘了同步就永远显示上一次的值（装 4.6.6 仍写 4.6.4）。
+        //           改为运行时读取 PackageManager 的 versionName，旧字符串已删除。
+        //           versionCode 43 -> 44；固定签名不变，可直接覆盖升级
+        versionCode 44 // modified: v4.6.7 发布
+        versionName "4.6.7" // modified: v4.6.7 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
