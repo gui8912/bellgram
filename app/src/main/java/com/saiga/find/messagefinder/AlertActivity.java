@@ -75,7 +75,7 @@ public class AlertActivity extends AppCompatActivity {
         // 表现就是「手机一转，正在响的闹铃从头开始」。只有首次创建才需要启动。
         if (savedInstanceState == null) {
             lastStartedRound = AlertSession.get(this).getRound(); // modified: 登记已启动轮次
-            startAlertService(); // modified: 用户可见状态下启动前台服务，属于系统豁免
+            startAlertService(getIntent()); // modified: v4.6.8 显式传入本次 Intent
         } else {
             // modified: 【v4.3.1 独立复审】manifest 的 configChanges 已移除 uiMode，
             // 主题切换会重建本页，lastStartedRound 随之归零。重建后若再收到「同一轮」
@@ -105,7 +105,7 @@ public class AlertActivity extends AppCompatActivity {
         int incomingRound = AlertSession.get(this).getRound(); // modified
         if (incomingRound != lastStartedRound) { // modified
             lastStartedRound = incomingRound; // modified
-            startAlertService(); // modified: 仅新一轮重启
+            startAlertService(intent); // modified: v4.6.8 仅新一轮、且本轮确实要出声时才重启
         } else { // modified
             Log.d(TAG, "same round re-delivered, keep current playback"); // modified
         }
@@ -205,19 +205,28 @@ public class AlertActivity extends AppCompatActivity {
      * 这一豁免项，而短信广播不在豁免清单里。把启动点放到这里，主链路才成立。
      * 即使启动失败，通知渠道自带的闹铃音也已经在通知到达时响过，不会完全静默。
      */
-    private void startAlertService() { // modified: 新增
+    private void startAlertService(Intent intent) { // modified: v4.6.8 增加 Intent 参数
         if (!AlertSession.get(this).isActive()) {
             Log.d(TAG, "session inactive, skip starting service");
             return;
         }
+        // 【新增 v4.6.8】状态通知（已稍后提醒 / 已提醒 N 次 / 已结束）点击也会打开本页，
+        // 但绝不能再启动播放服务：那会让「5 分钟后再次响铃」当场变成「立刻再响一轮」。
+        // 是否需要出声由发通知的一方写进 Intent，本页只照做，不自行判断。
+        if (!NotificationHelper.shouldPlayAudio(intent)) {
+            Log.d(TAG, "status notification opened, show content only, no playback");
+            SmsTrace.add(this, "告警页已打开",
+                    "状态通知入口：只展示内容，不重放已结束的一轮铃声");
+            return;
+        }
         try {
-            Intent intent = new Intent(this, SMSForegroundService.class); // 显式 Intent
-            intent.setAction(SMSForegroundService.ACTION_START_ALERT);
-            NotificationHelper.putAlertExtras(intent, sender, keyword, person, body);
+            Intent serviceIntent = new Intent(this, SMSForegroundService.class); // 显式 Intent
+            serviceIntent.setAction(SMSForegroundService.ACTION_START_ALERT);
+            NotificationHelper.putAlertExtras(serviceIntent, sender, keyword, person, body);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent);
+                startForegroundService(serviceIntent);
             } else {
-                startService(intent);
+                startService(serviceIntent);
             }
             // 【新增 v4.5.9】诊断里明确「告警页是否真的拉起」：这一页没起来，
             // 播放服务就不会启动，用户只会听到通知渠道那一声。

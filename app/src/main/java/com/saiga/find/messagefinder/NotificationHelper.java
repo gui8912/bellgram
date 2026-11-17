@@ -78,6 +78,19 @@ public final class NotificationHelper {
     private static final String EXTRA_KEYWORD = "Keyword";
     private static final String EXTRA_PAYLOAD = "Payload";
     private static final String EXTRA_PERSON = "Person";
+    /**
+     * 【新增 v4.6.8】告警页是否要为本次点击启动播放服务。
+     *
+     * <p>缺陷背景：所有通知（含「已稍后提醒 · 5 分钟后再次响铃」「已提醒 N 次」
+     * 「已结束」这类纯状态通知）的正文点击都会打开 {@code AlertActivity}，
+     * 而该页原先只判断「会话是否 active」就启动前台服务播放铃声。
+     * 于是用户点一下「已稍后提醒」的横幅，铃声立刻重响，「稍后提醒」被当场破坏；
+     * 点「已提醒 N 次 · M 分钟后再次提醒」也会把等待中的那一轮提前引爆。
+     *
+     * <p>现在把「这一轮要不要出声」显式写进 Intent：只有真正叫人（{@code withFullScreenIntent}）
+     * 的那一轮、以及闹钟兜底自己拉起告警页时才置 true。状态通知点击只展示内容，不出声。
+     */
+    private static final String EXTRA_PLAYBACK = "PlayAlertAudio"; // 新增 v4.6.8
 
     private NotificationHelper() {
         // 工具类不允许实例化
@@ -303,8 +316,10 @@ public final class NotificationHelper {
                 .setSmallIcon(R.drawable.notification_mf_icon)
                 // modified: 点击通知正文 -> 打开全屏告警页（进而合法启动服务响铃），
                 // 而不是只打开主界面；亮屏状态下这是用户获得强提醒的入口。
+                // 【修改 v4.6.8】只有「叫人」的那一轮才把「启动播放」写进 Intent，
+                // 状态通知（已稍后 / 已提醒 N 次 / 已结束）点击后只展示内容、不重放铃声。
                 .setContentIntent(buildAlertScreenIntent(context, REQ_CONTENT,
-                        sender, keyword, personName, body));
+                        sender, keyword, personName, body, withFullScreenIntent));
         // modified: 【v4.2】minSdk 23 覆盖 API 23-25，这三代系统没有通知渠道，
         // 渠道上配的闹铃音完全不存在；渠道创建失败时同理。补 builder 级声音/震动，
         // 保证「第一声」在任何情况下都不会变成一条静音横幅。
@@ -337,7 +352,7 @@ public final class NotificationHelper {
         // 强行设置不仅无效，部分 ROM 还会抛异常。
         if (withFullScreenIntent && canUseFullScreenIntent(context)) {
             builder.setFullScreenIntent(buildAlertScreenIntent(context, REQ_FULLSCREEN,
-                    sender, keyword, personName, body), true);
+                    sender, keyword, personName, body, true), true); // modified: v4.6.8 显式要求出声
         }
         return builder.build();
     }
@@ -347,11 +362,14 @@ public final class NotificationHelper {
      *
      * <p>统一处理 targetSdk 33+ 的 POST_NOTIFICATIONS：未授权时 AndroidX 会抛
      * SecurityException，通知总开关被关时直接放弃并记日志——两种情况都不能让应用崩溃。
+     *
+     * @return 【新增 v4.6.8】true 表示通知确实交给了系统（被系统静默降级的渠道另计）；
+     *         false 表示通知根本没发出去。调用方据此写诊断，避免「其实没发」却记成「已发出」。
      */
-    public static void post(Context context, String channelId, String sender, String keyword,
-                            String person, String body, CharSequence status) {
+    public static boolean post(Context context, String channelId, String sender, String keyword,
+                               String person, String body, CharSequence status) {
         // 默认不带全屏 Intent：绝大多数调用都是「更新状态」而不是「叫人」。
-        post(context, channelId, sender, keyword, person, body, status, false, true); // modified
+        return post(context, channelId, sender, keyword, person, body, status, false, true); // modified
     }
 
     /**
@@ -359,20 +377,20 @@ public final class NotificationHelper {
      *
      * @param withFullScreenIntent true = 锁屏/息屏时自动拉起告警页（仅用于真正要提醒的那一轮）
      */
-    public static void post(Context context, String channelId, String sender, String keyword,
-                            String person, String body, CharSequence status,
-                            boolean withFullScreenIntent) { // modified: 新增 FSI 开关
-        post(context, channelId, sender, keyword, person, body, status, // modified
+    public static boolean post(Context context, String channelId, String sender, String keyword,
+                               String person, String body, CharSequence status,
+                               boolean withFullScreenIntent) { // modified: 新增 FSI 开关
+        return post(context, channelId, sender, keyword, person, body, status, // modified
                 withFullScreenIntent, true); // modified
     }
 
     /** 完整发通知入口，可同时控制全屏 Intent 与通知动作。 */
-    public static void post(Context context, String channelId, String sender, String keyword, // modified
-                            String person, String body, CharSequence status, // modified
-                            boolean withFullScreenIntent, // modified
-                            boolean withActions) { // modified: v4.2 新增动作开关
+    public static boolean post(Context context, String channelId, String sender, String keyword, // modified
+                               String person, String body, CharSequence status, // modified
+                               boolean withFullScreenIntent, // modified
+                               boolean withActions) { // modified: v4.2 新增动作开关
         if (context == null) {
-            return;
+            return false; // 新增 v4.6.8
         }
         Context app = context.getApplicationContext() != null
                 ? context.getApplicationContext() : context;
@@ -386,7 +404,7 @@ public final class NotificationHelper {
                 // 落到可见诊断，用户才知道该去系统设置开哪一项。
                 SmsTrace.skip(app, "通知被系统关闭",
                         "请到 系统设置 → 应用 → 铃达 → 通知，打开「允许通知」及该通知类别");
-                return;
+                return false; // 新增 v4.6.8：如实告诉调用方没发出去
             }
             ensureChannels(app);
             // modified: 【v4.2】渠道不存在时 notify() 会被系统静默丢弃且不抛异常。
@@ -407,12 +425,15 @@ public final class NotificationHelper {
             // 问题就在系统侧：通知类别被静音、全屏 Intent 特殊权限未授予、或 ROM 拦截后台弹窗。
             SmsTrace.add(app, withFullScreenIntent ? "提醒通知已提交" : "状态通知已更新",
                     "渠道=" + effectiveChannel + "；仍无动静请查系统通知类别与全屏权限");
+            return true; // 新增 v4.6.8
         } catch (SecurityException e) {
             Log.e(TAG, "POST_NOTIFICATIONS not granted, cannot post alert", e);
             SmsTrace.skip(app, "缺少通知权限", "POST_NOTIFICATIONS 未授予，通知被系统拒绝"); // 新增 v4.5.6
+            return false; // 新增 v4.6.8
         } catch (Exception e) {
             Log.e(TAG, "post notification failed", e);
             SmsTrace.skip(app, "发通知失败", e.toString()); // 新增 v4.5.6
+            return false; // 新增 v4.6.8
         }
     }
 
@@ -531,15 +552,17 @@ public final class NotificationHelper {
      * 全屏告警页的 PendingIntent。显式 Intent（targetSdk 34+ 对隐式 Intent 有严格限制）。
      *
      * @param requestCode 内容点击与全屏 Intent 用不同 requestCode，避免 PendingIntent 互相覆盖
+     * @param playback    本次打开告警页是否要启动播放服务；只有真正叫人时才为 true
      */
     private static PendingIntent buildAlertScreenIntent(Context context, int requestCode,
                                                         String sender, String keyword,
-                                                        String person, String body) { // modified: 新增
+                                                        String person, String body,
+                                                        boolean playback) { // modified: v4.6.8 增加 playback
         Intent intent = new Intent(context, AlertActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
-        putAlertExtras(intent, sender, keyword, person, body);
+        putAlertExtras(intent, sender, keyword, person, body, playback);
         return PendingIntent.getActivity(context, requestCode, intent, pendingIntentFlags());
     }
 
@@ -552,13 +575,37 @@ public final class NotificationHelper {
         return TextUtils.isEmpty(value) ? "" : value;
     }
 
-    /** 打包「提醒请求」所需的 extras。 */
+    /** 打包「提醒请求」所需的 extras（默认不要求播放，兼容旧调用点）。 */
     static void putAlertExtras(Intent intent, String sender, String keyword,
                                String person, String body) {
+        putAlertExtras(intent, sender, keyword, person, body, false);
+    }
+
+    /**
+     * 打包「提醒请求」所需的 extras。
+     *
+     * @param playback 打开告警页后是否启动播放服务；状态通知必须传 false
+     */
+    static void putAlertExtras(Intent intent, String sender, String keyword,
+                               String person, String body, boolean playback) { // 新增 v4.6.8
+        if (intent == null) {
+            return;
+        }
         intent.putExtra(EXTRA_FROM, sender);
         intent.putExtra(EXTRA_KEYWORD, keyword);
         intent.putExtra(EXTRA_PERSON, person);
         intent.putExtra(EXTRA_PAYLOAD, body);
+        intent.putExtra(EXTRA_PLAYBACK, playback); // 新增 v4.6.8
+    }
+
+    /**
+     * 【新增 v4.6.8】本次打开告警页是否需要启动播放服务。
+     *
+     * <p>取不到标志时一律返回 false：宁可少响一次（用户点的本来就是状态通知），
+     * 也不要在「已停止 / 已稍后提醒」之后突然再响一轮，那才是真正的功能缺陷。
+     */
+    static boolean shouldPlayAudio(Intent intent) { // 新增 v4.6.8
+        return intent != null && intent.getBooleanExtra(EXTRA_PLAYBACK, false);
     }
 
     static String getFrom(Intent intent) {

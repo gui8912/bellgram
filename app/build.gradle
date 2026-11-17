@@ -205,8 +205,21 @@ android {
         //           每次发版忘了同步就永远显示上一次的值（装 4.6.6 仍写 4.6.4）。
         //           改为运行时读取 PackageManager 的 versionName，旧字符串已删除。
         //           versionCode 43 -> 44；固定签名不变，可直接覆盖升级
-        versionCode 44 // modified: v4.6.7 发布
-        versionName "4.6.7" // modified: v4.6.7 发布
+        // modified: v4.6.8 = 修三个已确认缺陷，均不新增设置项、不改配置键名：
+        //           ①【P1】点「已稍后提醒 / 已提醒 N 次」这类状态通知会立刻重响一轮——
+        //           所有通知的正文点击都打开 AlertActivity，而该页只要会话 active 就
+        //           启动播放服务，于是「5 分钟后再次响铃」被点成了「现在再响一次」。
+        //           改为把「本轮是否出声」显式写进 Intent（NotificationHelper.EXTRA_PLAYBACK），
+        //           只有真正叫人（withFullScreenIntent）的那一轮与闹钟兜底才置 true。
+        //           ②【P2】通知被系统关闭时，诊断仍记「本轮通知已发出」，把排障方向引偏。
+        //           NotificationHelper.post() 改为返回 boolean，AlertDispatcher 据此
+        //           如实写「本轮通知未发出 · 改由兜底闹钟启动播放」。
+        //           ③【P2】release 正文顶部重复出现一遍标题（RELEASE_NOTES 里每版既有
+        //           `## vX · 标题` 又有一行 `# vX · 标题`，awk 把 H1 也带进了 body）。
+        //           已统一为只保留 `## vX · 标题`，并在 CI 里过滤残留的 H1。
+        //           versionCode 44 -> 45；配置键名与存储格式未变，固定签名不变，可直接覆盖升级
+        versionCode 45 // modified: v4.6.8 发布
+        versionName "4.6.8" // modified: v4.6.8 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

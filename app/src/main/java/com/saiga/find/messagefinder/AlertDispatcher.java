@@ -271,17 +271,18 @@ public final class AlertDispatcher {
         // modified: 【独立复审修正】只有这里传 true。全屏 Intent 是「叫人」的手段，
         // 只应出现在真正要提醒的那一轮；状态更新（等待中/已稍后/已结束）绝不能带，
         // 否则用户明明已经点过「停止」，锁屏却又弹出一个「提醒已结束」的全屏页。
-        NotificationHelper.post(app, channelId,
+        boolean posted = NotificationHelper.post(app, channelId,
                 session.getFrom(), session.getKeyword(), session.getPerson(),
-                session.getBody(), status, true);
-        Log.d(TAG, "posted alert notification, round=" + round + ", audible=" + audible);
+                session.getBody(), status, true); // modified: v4.6.8 取回真实结果
+        Log.d(TAG, "posted alert notification, round=" + round
+                + ", audible=" + audible + ", posted=" + posted);
         // 【新增 v4.5.9】通知自带的渠道音只响「一声」；本轮设定时长的持续响铃要靠
         // AlertActivity -> SMSForegroundService。全屏 Intent 亮屏会被降级，故挂一条兜底闹钟。
         // 诊断里同时记录设定时长与全屏权限，避免「只响一声」再变成黑盒。
         try {
             int duration = config.getRingDurationSec();
             boolean fullScreenAllowed = NotificationHelper.canUseFullScreenIntent(app);
-            SmsTrace.add(app, "本轮通知已发出",
+            SmsTrace.add(app, posted ? "本轮通知已发出" : "本轮通知未发出",
                     "第 " + round + " 轮；设定响铃 "
                             + (duration <= 0 ? "直到手动停止" : duration + " 秒")
                             // 【新增 v4.6.1】把「渠道音开/关」写进诊断：
@@ -289,7 +290,10 @@ public final class AlertDispatcher {
                             + "；渠道音=" + (audible
                                     ? "开"
                                     : (quietHours ? "关（夜间静音）" : "关（响铃已关闭）"))
-                            + "；全屏通知权限=" + (fullScreenAllowed ? "允许" : "受限"));
+                            + "；全屏通知权限=" + (fullScreenAllowed ? "允许" : "受限")
+                            // 【新增 v4.6.8】通知没发出去时，这一轮只能靠 1.5 秒兜底闹钟
+                            // 把播放服务拉起来；不写清楚会让人误以为通知链路正常。
+                            + (posted ? "" : "；通知被系统拒绝，本轮改由兜底闹钟启动播放"));
             AlertScheduler.scheduleRoundFallback(app, round); // 新增 v4.5.9
         } catch (Exception e) {
             // 诊断与兜底都是旁路，失败绝不能掐断已经发出的通知

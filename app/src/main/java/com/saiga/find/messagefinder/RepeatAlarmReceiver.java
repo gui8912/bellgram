@@ -95,8 +95,10 @@ public class RepeatAlarmReceiver extends BroadcastReceiver {
             alert.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                     | Intent.FLAG_ACTIVITY_CLEAR_TOP
                     | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+            // 【修改 v4.6.8】显式要求出声：本路径是「该响了但告警页没被拉起」的兜底，
+            // 页面起来后必须继续启动播放服务，否则会退化成只显示一页静默界面。
             NotificationHelper.putAlertExtras(alert, session.getFrom(), session.getKeyword(),
-                    session.getPerson(), session.getBody());
+                    session.getPerson(), session.getBody(), true);
             app.startActivity(alert);
             SmsTrace.add(app, "兜底拉起告警页",
                     "全屏 Intent 未生效，改由系统闹钟启动本轮持续响铃");

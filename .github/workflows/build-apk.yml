@@ -127,7 +127,10 @@ jobs:
           # 每个版本在 RELEASE_NOTES.md 里用「## vX.Y.Z · 摘要」开头
           TITLE=$(awk -v tag="$TAG" 'index($0, "## " tag " ")==1 {sub(/^## /,""); print; exit}' RELEASE_NOTES.md)
           [ -n "$TITLE" ] || TITLE="$TAG"
-          BODY=$(awk -v tag="$TAG" 'index($0, "## " tag " ")==1 {f=1; next} /^## v[0-9]/ {f=0} f' RELEASE_NOTES.md)
+          # 【修改 v4.6.8】同时过滤掉以「# vX.Y.Z」开头的行：
+          # 旧文档每个版本既有「## vX · 标题」又有一行「# vX · 标题」，H1 被一起
+          # 带进 body，于是 GitHub 上 Release 标题出现两遍（正文顶部又多一行同名大标题）。
+          BODY=$(awk -v tag="$TAG" 'index($0, "## " tag " ")==1 {f=1; next} /^## v[0-9]/ {f=0} f && $0 !~ /^# v[0-9]/' RELEASE_NOTES.md)
           if [ -n "$BODY" ]; then
             printf '%s\n' "$BODY" > release-notes.txt
           else
