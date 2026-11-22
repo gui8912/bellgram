@@ -29,10 +29,27 @@ public class RepeatAlarmReceiver extends BroadcastReceiver {
         try {
             String action = intent.getAction();
             if (AlertScheduler.ACTION_REPEAT.equals(action)) {
+                // 【新增 v4.6.9】闹钟广播是后台启动前台服务的官方豁免上下文：
+                // 守护若已被回收，顺带补拉一次，让后续短信不再被延迟投递。
+                if (!GuardService.isRunning()) { // 新增 v4.6.9
+                    GuardService.start(context); // 新增 v4.6.9
+                } // 新增 v4.6.9
                 int round = Math.max(1, intent.getIntExtra(AlertScheduler.EXTRA_ROUND, 1));
                 AlertDispatcher.onRepeatAlarm(context, round);
             } else if (AlertScheduler.ACTION_ROUND_FALLBACK.equals(action)) { // 新增 v4.5.9
+                if (!GuardService.isRunning()) { // 新增 v4.6.9
+                    GuardService.start(context); // 新增 v4.6.9
+                } // 新增 v4.6.9
                 handleRoundFallback(context, intent); // 新增 v4.5.9
+            } else if (AlertScheduler.ACTION_GUARD_RETRY.equals(action)) { // 新增 v4.6.9
+                // 【新增 v4.6.9】兜底任务在后台拉起守护被拒后的闹钟重试。
+                // 由 setAlarmClock 触发，属于「应用调用精确闹钟完成用户请求的动作」
+                // 豁免情形，startForegroundService 不受电池优化开关影响。
+                // 只试一次：仍被拒就等下一个 15 分钟兜底周期，不挂新闹钟，避免循环。
+                boolean requested = GuardService.start(context); // 新增 v4.6.9
+                SmsTrace.add(context, requested ? "守护闹钟重试已请求" : "守护闹钟重试被拒", // 新增 v4.6.9
+                        requested ? "精确闹钟豁免上下文，等待守护进入前台" // 新增 v4.6.9
+                                : "仍被系统拒绝，等下一个兜底周期或用户打开应用"); // 新增 v4.6.9
             }
         } catch (Exception e) {
             // 广播接收器里的异常会直接弹「应用已停止运行」

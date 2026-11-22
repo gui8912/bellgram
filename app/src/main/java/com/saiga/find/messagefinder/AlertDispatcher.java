@@ -104,6 +104,9 @@ public final class AlertDispatcher {
             scheduleFollowUp(app, round); // modified: 每一轮发出通知时就挂好下一轮闹钟
         } catch (Exception e) {
             Log.e(TAG, "dispatch repeat alert failed", e);
+            // 【新增 v4.6.9】与 onSmsMatched 对齐：重复轮派发失败也要留下可见原因，
+            // 否则「到点没响」在诊断里一片空白，无法与「闹钟根本没触发」区分。
+            SmsTrace.skip(context, "重复提醒派发失败", "第 " + round + " 轮；" + e); // 新增 v4.6.9
         }
     }
 

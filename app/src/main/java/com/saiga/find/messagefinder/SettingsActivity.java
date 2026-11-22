@@ -379,10 +379,13 @@ public class SettingsActivity extends AppCompatActivity {
             } // 新增
             final Context app = context.getApplicationContext(); // 新增
             stopPreview(); // 新增
-            final String label = CustomRingtone.displayName(app, uri); // 新增
             Toast.makeText(context, R.string.custom_ringtone_importing, // 新增
                     Toast.LENGTH_SHORT).show(); // 新增
             new Thread(() -> { // 新增
+                // 【修改 v4.6.9】显示名查询（RingtoneManager + ContentResolver）也是 IO，
+                // 原实现压在 UI 线程上，慢速 provider / 大文件时有 ANR 风险；
+                // 与复制、校验一起放进后台线程，结果仍回主线程刷新。
+                final String label = CustomRingtone.displayName(app, uri); // 新增 v4.6.9
                 final int code = CustomRingtone.importFromUri(app, uri, label); // 新增
                 new Handler(Looper.getMainLooper()).post(() -> { // 新增
                     Context live = getContext(); // 新增

@@ -26,13 +26,22 @@ public final class AlertScheduler {
     public static final String ACTION_REPEAT = "com.saiga.find.messagefinder.action.REPEAT_ALERT"; // modified: 新增
     /** 【新增 v4.5.9】本轮响铃兜底：全屏 Intent 被系统降级时，由闹钟把告警页拉起来。 */
     public static final String ACTION_ROUND_FALLBACK = "com.saiga.find.messagefinder.action.ROUND_FALLBACK"; // 新增 v4.5.9
+    /**
+     * 【新增 v4.6.9】守护重试：兜底任务在后台启动 GuardService 被系统拒绝时，
+     * 改由精确闹钟把守护拉起来。闹钟广播属于 Android 12+ 后台启动前台服务的
+     * 官方豁免情形（「应用调用精确闹钟完成用户请求的动作」），不依赖电池优化开关。
+     */
+    public static final String ACTION_GUARD_RETRY = "com.saiga.find.messagefinder.action.GUARD_RETRY"; // 新增 v4.6.9
     public static final String EXTRA_ROUND = "alert_round"; // modified: 新增
 
     private static final int REQ_REPEAT = 41;
     private static final int REQ_SHOW = 42;
     private static final int REQ_FALLBACK = 43; // 新增 v4.5.9：与下一轮闹钟用不同 requestCode，互不覆盖
+    private static final int REQ_GUARD_RETRY = 44; // 新增 v4.6.9：守护重试，独立 requestCode
     /** 兜底只比通知晚一点点：给全屏 Intent 先拉页的机会，来不及才由闹钟补上。 */
     private static final long FALLBACK_DELAY_MS = 1500L; // 新增 v4.5.9
+    /** 【新增 v4.6.9】守护重试延迟：1 分钟。太短没有意义（限制不会立刻解除），太长守护空窗更久。 */
+    private static final long GUARD_RETRY_DELAY_MS = 60_000L; // 新增 v4.6.9
 
     private AlertScheduler() {
         // 工具类不允许实例化
@@ -140,6 +149,65 @@ public final class AlertScheduler {
         }
     }
 
+    /**
+     * 【新增 v4.6.9】挂一条「1 分钟后重试拉起守护」的精确闹钟。
+     *
+     * <p>背景：v4.6.5 的开机兜底任务（JobScheduler 周期任务）负责在守护被系统回收后
+     * 重新拉起它。但 Android 12+ 的后台启动前台服务豁免清单里**没有 JobScheduler**
+     * （官方文档核实）：只有「用户已关闭电池优化」等情形才豁免。电池优化未关闭时，
+     * 兜底任务里的 startForegroundService 会被拒绝，守护永远起不来，
+     * 短信广播重新回到「进程不存在就被延迟投递」的状态——这正是
+     * 「开机运行久了偶尔不报警」的一条真实链路。
+     *
+     * <p>本方法沿用工程既有的 setAlarmClock()：不需要 SCHEDULE_EXACT_ALARM 权限、
+     * 能穿透 Doze，且闹钟到点触发的广播属于官方豁免上下文，由
+     * {@link RepeatAlarmReceiver} 在豁免窗口内再次尝试启动守护。
+     * 只重试一次：仍失败则等下一个 15 分钟兜底周期，不会形成闹钟循环。
+     */
+    public static void scheduleGuardRetry(Context context) { // 新增 v4.6.9
+        if (context == null) { // 新增 v4.6.9
+            return; // 新增 v4.6.9
+        } // 新增 v4.6.9
+        try { // 新增 v4.6.9
+            Context app = context.getApplicationContext() != null // 新增 v4.6.9
+                    ? context.getApplicationContext() : context; // 新增 v4.6.9
+            AlarmManager alarmManager = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE); // 新增 v4.6.9
+            if (alarmManager == null) { // 新增 v4.6.9
+                Log.e(TAG, "AlarmManager unavailable for guard retry"); // 新增 v4.6.9
+                return; // 新增 v4.6.9
+            } // 新增 v4.6.9
+            final long triggerAtMillis = System.currentTimeMillis() + GUARD_RETRY_DELAY_MS; // 新增 v4.6.9
+            PendingIntent operation = buildGuardRetryIntent(app); // 新增 v4.6.9
+            Intent show = new Intent(app, MainActivity.class); // 新增 v4.6.9
+            show.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP); // 新增 v4.6.9
+            PendingIntent showIntent = PendingIntent.getActivity(app, REQ_SHOW, show, // 新增 v4.6.9
+                    pendingFlags()); // 新增 v4.6.9
+            alarmManager.setAlarmClock( // 新增 v4.6.9
+                    new AlarmManager.AlarmClockInfo(triggerAtMillis, showIntent), operation); // 新增 v4.6.9
+            Log.d(TAG, "guard retry scheduled in 1 min"); // 新增 v4.6.9
+        } catch (Exception e) { // 新增 v4.6.9
+            // 重试闹钟挂不上最多是少一层保险，绝不能影响调用方（兜底任务）收尾
+            Log.w(TAG, "schedule guard retry failed", e); // 新增 v4.6.9
+        } // 新增 v4.6.9
+    } // 新增 v4.6.9
+
+    /** 【新增 v4.6.9】守护已成功启动时撤掉重试闹钟。幂等，未挂过时调用无副作用。 */
+    public static void cancelGuardRetry(Context context) { // 新增 v4.6.9
+        if (context == null) { // 新增 v4.6.9
+            return; // 新增 v4.6.9
+        } // 新增 v4.6.9
+        try { // 新增 v4.6.9
+            Context app = context.getApplicationContext() != null // 新增 v4.6.9
+                    ? context.getApplicationContext() : context; // 新增 v4.6.9
+            AlarmManager alarmManager = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE); // 新增 v4.6.9
+            if (alarmManager != null) { // 新增 v4.6.9
+                alarmManager.cancel(buildGuardRetryIntent(app)); // 新增 v4.6.9
+            } // 新增 v4.6.9
+        } catch (Exception e) { // 新增 v4.6.9
+            Log.w(TAG, "cancel guard retry failed", e); // 新增 v4.6.9
+        } // 新增 v4.6.9
+    } // 新增 v4.6.9
+
     /** 取消尚未触发的下一轮提醒。用户点「停止」、收到新短信时都要调用。 */
     public static void cancel(Context context) { // modified: 新增
         if (context == null) {
@@ -174,6 +242,13 @@ public final class AlertScheduler {
         intent.putExtra(EXTRA_ROUND, round);
         return PendingIntent.getBroadcast(app, REQ_FALLBACK, intent, pendingFlags());
     }
+
+    /** 【新增 v4.6.9】守护重试闹钟的 PendingIntent。无 extras，requestCode 独立。 */
+    private static PendingIntent buildGuardRetryIntent(Context app) { // 新增 v4.6.9
+        Intent intent = new Intent(app, RepeatAlarmReceiver.class); // 新增 v4.6.9
+        intent.setAction(ACTION_GUARD_RETRY); // 新增 v4.6.9
+        return PendingIntent.getBroadcast(app, REQ_GUARD_RETRY, intent, pendingFlags()); // 新增 v4.6.9
+    } // 新增 v4.6.9
 
     /** Android 12+ 必须显式声明 PendingIntent 可变性。 */
     private static int pendingFlags() { // modified: 新增

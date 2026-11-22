@@ -62,6 +62,14 @@ public class SMSReceiver extends BroadcastReceiver {
             // 【新增 v4.5.6】异常原本只进 logcat，用户手机上表现为「完全没反应」。
             SmsTrace.skip(context, "处理短信时异常", e.toString());
         }
+        // 【新增 v4.6.9】广播能到达，说明进程此刻活着；守护若已被 ROM 回收，
+        // 顺手补拉一次，让后续短信不再被延迟投递（v4.6.3 的实测结论）。
+        // 短信广播本身不在后台启动前台服务的豁免清单里：电池优化已关闭时
+        // 这次启动会成功；未关闭时被拒也无妨——兜底任务的闹钟重试会接住。
+        // 放在主链路之后：补拉守护是旁路，绝不能影响本条短信的提醒。
+        if (!GuardService.isRunning()) { // 新增 v4.6.9
+            GuardService.start(context); // 新增 v4.6.9
+        } // 新增 v4.6.9
     }
 
     private void handleSms(Context context, Intent intent) {
@@ -238,8 +246,12 @@ public class SMSReceiver extends BroadcastReceiver {
         // 部分 ROM 在线程池里并发投递广播时，两个线程可能都读到旧值而双双放行，
         // 或读到「新指纹 + 旧时间戳」的错误组合。这里用一把锁把整段收成原子操作。
         synchronized (DEDUP_LOCK) {
+            // modified: 【v4.6.9】墙钟可能被 NTP/用户回拨：now - lastAt 为负时，
+            // 原实现的「< 3000」恒成立，同指纹短信会被误判为重复投递而静默吞掉。
+            // 负时差一律按「不在窗口内」处理，宁可多响一次也不漏报。
+            long elapsed = now - lastFingerprintAt; // 新增 v4.6.9
             if (fingerprint.equals(lastFingerprint)
-                    && (now - lastFingerprintAt) < DUPLICATE_WINDOW_MS) {
+                    && elapsed >= 0 && elapsed < DUPLICATE_WINDOW_MS) { // modified: v4.6.9
                 return true;
             }
             lastFingerprint = fingerprint;

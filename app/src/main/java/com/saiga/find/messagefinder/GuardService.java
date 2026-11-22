@@ -58,10 +58,17 @@ public class GuardService extends Service { // 新增 v4.6.3
      * <p>所有调用点都必须容忍失败：Android 12+ 在应用处于后台时启动前台服务会抛
      * {@code ForegroundServiceStartNotAllowedException}。这不是错误，也不该弹提示——
      * 等用户下次打开应用、或开机广播把应用拉起时自然会再试一次。
+     *
+     * <p>【修改 v4.6.9】返回是否真的发出了启动请求。原实现返回 void 且内部吞异常，
+     * 兜底任务（BootJobService）无从知道启动被拒，诊断里照样写「已重新拉起」，
+     * 把「守护起不来导致短信被延迟投递」的排障方向引偏。现在调用方可以据实记录，
+     * 并在被拒时改走精确闹钟重试（闹钟广播是官方豁免上下文，不受电池优化开关影响）。
+     *
+     * @return true = startForegroundService 已被系统接受；false = 被后台启动限制拒绝
      */
-    public static void start(Context context) { // 新增 v4.6.3
+    public static boolean start(Context context) { // 新增 v4.6.3 // modified: v4.6.9 返回启动结果
         if (context == null) { // 新增 v4.6.3
-            return; // 新增 v4.6.3
+            return false; // 新增 v4.6.3 // modified: v4.6.9
         } // 新增 v4.6.3
         try { // 新增 v4.6.3
             Context app = context.getApplicationContext() != null // 新增 v4.6.3
@@ -69,9 +76,11 @@ public class GuardService extends Service { // 新增 v4.6.3
             Intent intent = new Intent(app, GuardService.class); // 新增 v4.6.3
             intent.setAction(ACTION_START); // 新增 v4.6.3
             ContextCompat.startForegroundService(app, intent); // 新增 v4.6.3
+            return true; // 新增 v4.6.9
         } catch (Exception e) { // 新增 v4.6.3
             // 后台启动受限是正常现象，不是缺陷；不写诊断，避免把日志刷满
             Log.w(TAG, "start guard rejected, will retry later", e); // 新增 v4.6.3
+            return false; // 新增 v4.6.9
         } // 新增 v4.6.3
     } // 新增 v4.6.3
 
@@ -117,6 +126,9 @@ public class GuardService extends Service { // 新增 v4.6.3
             // 只在「从没运行 → 运行」时记一条，避免每次 onStartCommand 都刷轨迹
             SmsTrace.add(this, "后台守护已启动", // 新增 v4.6.3
                     "常驻前台服务，短信广播不再被系统延迟"); // 新增 v4.6.3
+            // 【新增 v4.6.9】守护已经起来，撤掉可能还挂着的闹钟重试，
+            // 避免状态栏闹钟图标多挂一分钟、也避免一次无意义的重复启动。
+            AlertScheduler.cancelGuardRetry(this); // 新增 v4.6.9
         } // 新增 v4.6.3
         Log.i(TAG, "guard service running"); // 新增 v4.6.3
         // START_STICKY：被系统回收后自动重建。用户「强行停止」则不会重建，这是系统语义。

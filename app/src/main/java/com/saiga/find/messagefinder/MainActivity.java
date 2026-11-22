@@ -360,7 +360,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         // 刻意不新增一行，保持首屏「一页不用下拉」。点状态条可展开完整诊断。
         String lastSkip = SmsTrace.lastSkip(this);
         if (!TextUtils.isEmpty(lastSkip)) {
-            String brief = lastSkip.length() > 46 ? lastSkip.substring(0, 46) + "…" : lastSkip;
+            // 【修改 v4.6.9】按码点截断，与 HitLog / SmsTrace 一致：
+            // 原 substring(0, 46) 可能切断 emoji 的代理对，状态条显示乱码。
+            String brief = lastSkip.codePointCount(0, lastSkip.length()) > 46 // modified: v4.6.9
+                    ? lastSkip.substring(0, lastSkip.offsetByCodePoints(0, 46)) + "…" // modified: v4.6.9
+                    : lastSkip; // modified: v4.6.9
             statusText.append("\n" + getString(R.string.status_last_skip, brief));
             statusText.setTextColor(getColor(R.color.alert_accent));
         } else if (missing > 0) {

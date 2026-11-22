@@ -237,6 +237,31 @@ public final class NotificationHelper {
         }
     }
 
+    /**
+     * 【新增 v4.6.9】渠道是否被设成「关闭」（importance=NONE）。
+     *
+     * <p>渠道重要性创建后应用改不回来，但用户可以在系统设置里关掉它；
+     * 部分 ROM 的「智能免打扰」也会静默降级。被关后 notify() 静默丢弃，
+     * 是「应用通知总开关正常、却完全没反应」的又一个盲区（v4.6.1 已在诊断快照里
+     * 展示渠道状态，这里进一步让主链路感知它并改走兜底播放）。
+     * 读取失败一律按「未关闭」处理，绝不误拦正常通知。
+     */
+    private static boolean channelBlocked(Context context, String channelId) { // 新增 v4.6.9
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) { // 新增 v4.6.9
+            return false; // 新增 v4.6.9
+        } // 新增 v4.6.9
+        try { // 新增 v4.6.9
+            NotificationManager manager = // 新增 v4.6.9
+                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE); // 新增 v4.6.9
+            NotificationChannel channel = manager == null // 新增 v4.6.9
+                    ? null : manager.getNotificationChannel(channelId); // 新增 v4.6.9
+            return channel != null // 新增 v4.6.9
+                    && channel.getImportance() == NotificationManager.IMPORTANCE_NONE; // 新增 v4.6.9
+        } catch (Exception e) { // 新增 v4.6.9
+            return false; // 新增 v4.6.9
+        } // 新增 v4.6.9
+    } // 新增 v4.6.9
+
     /** 构建提醒通知（不带轮次状态）。 */
     public static Notification build(Context context, String channelId, String sender,
                                      String keyword, String personName, String body) {
@@ -416,8 +441,20 @@ public final class NotificationHelper {
                     effectiveChannel = NotificationChannel.DEFAULT_CHANNEL_ID; // modified
                     Log.w(TAG, "target channel missing, fall back to default channel"); // modified
                     SmsTrace.add(app, "通知渠道降级", "目标渠道不可用，改用系统默认渠道；可能无声"); // 新增 v4.5.6
-                }
-            }
+                } // modified
+            } // modified
+            // 【新增 v4.6.9】渠道被用户/系统设成「关闭」（importance=NONE）时，
+            // notify() 会被静默丢弃且不抛异常——应用通知总开关看起来仍正常。
+            // 旧实现照样记「已提交」，本轮既没有通知音、也不会触发兜底播放，完全静默。
+            // 现在如实返回 false：调用方（postRound）据此写诊断，并由 1.5 秒兜底闹钟
+            // 直接拉起播放服务——MediaPlayer 响铃不依赖通知渠道，本轮仍然能响。
+            if (channelBlocked(app, effectiveChannel)) { // 新增 v4.6.9
+                Log.w(TAG, "channel blocked by user/system, skip posting: " + effectiveChannel); // 新增 v4.6.9
+                SmsTrace.skip(app, "提醒渠道已被关闭", // 新增 v4.6.9
+                        "渠道=" + effectiveChannel // 新增 v4.6.9
+                                + "；请到 系统设置 → 应用 → 铃达 → 通知 重新开启该类别"); // 新增 v4.6.9
+                return false; // 新增 v4.6.9
+            } // 新增 v4.6.9
             manager.notify(NOTIFICATION_ID,
                     build(app, effectiveChannel, sender, keyword, person, body, status, // modified
                             withFullScreenIntent, withActions)); // modified

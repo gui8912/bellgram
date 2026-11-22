@@ -21,6 +21,7 @@ import android.app.Notification;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo; // 新增 v4.6.9：显式声明前台服务类型
 import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -186,7 +187,15 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
                 currentPerson, currentBody,
                 getString(R.string.notif_status_round, currentRound), false);
         try {
-            startForeground(NotificationHelper.NOTIFICATION_ID, notification); // modified: 最先调用
+            // 【修改 v4.6.9】Android 14+ 显式声明 mediaPlayback 类型，与 GuardService
+            // 的写法对齐。两参重载默认取 manifest 类型，个别 ROM 解析不一致时会抛
+            // MissingForegroundServiceTypeException；显式传值消除这层不确定性。
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // 新增 v4.6.9
+                startForeground(NotificationHelper.NOTIFICATION_ID, notification, // 新增 v4.6.9
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK); // 新增 v4.6.9
+            } else { // 新增 v4.6.9
+                startForeground(NotificationHelper.NOTIFICATION_ID, notification); // modified: 最先调用
+            } // 新增 v4.6.9
             foregroundStarted = true;
         } catch (Exception e) {
             Log.e(TAG, "startForeground failed, degrade to plain notification", e);
@@ -319,6 +328,19 @@ public class SMSForegroundService extends Service implements MediaPlayer.OnPrepa
             stopSelfSafely(true);
             return;
         }
+        // 【新增 v4.6.9】会话轮次已不等于本轮时，绝不按旧轮次重挂闹钟：
+        //   · 播放期间来了新短信：会话被重置为第 1 轮，旧轮次 +1 会跳到新会话的
+        //     第 N+1 轮，中间轮次全部丢失；
+        //   · 单轮时长 > 重复间隔（如 120 秒 / 1 分钟）：闹钟已把会话推进到下一轮，
+        //     调度器也挂好了再下一轮；这里用旧轮次覆盖同一 requestCode 的闹钟，
+        //     会把已排好的轮次拉回来重响，会话无限拖延。
+        // 两种情况下下一轮闹钟都已由 AlertDispatcher 挂好，本轮只需安静退出。
+        if (session.getRound() != rounds) { // 新增 v4.6.9
+            Log.d(TAG, "session round moved on (" + session.getRound() // 新增 v4.6.9
+                    + " != " + rounds + "), leave scheduling to dispatcher"); // 新增 v4.6.9
+            stopSelfSafely(false); // 新增 v4.6.9
+            return; // 新增 v4.6.9
+        } // 新增 v4.6.9
         int total = session.getTotalRounds();
         boolean hasNextRound = RoundPolicy.hasNextRound(rounds, total,
                 ringDurationSec, repeatIntervalMin); // modified: 规则集中

@@ -74,8 +74,14 @@ public class AlertActivity extends AppCompatActivity {
         // 重建后再次 startForegroundService 会让服务进入新一轮 handleStartAlert，
         // 表现就是「手机一转，正在响的闹铃从头开始」。只有首次创建才需要启动。
         if (savedInstanceState == null) {
-            lastStartedRound = AlertSession.get(this).getRound(); // modified: 登记已启动轮次
-            startAlertService(getIntent()); // modified: v4.6.8 显式传入本次 Intent
+            // 【修改 v4.6.9】只有播放服务确实启动成功才登记「已启动轮次」。
+            // 原实现无条件登记：startForegroundService 恰好被系统拒绝（部分 ROM
+            // 在页面刚拉起的一瞬间仍按后台处理）时，lastStartedRound 也已记成本轮，
+            // 随后兜底闹钟以同一轮次拉起本页，onNewIntent 误判「同轮已启动」而跳过，
+            // 这一轮就只剩通知渠道那一声。启动失败时不登记，兜底到来仍会重试。
+            if (startAlertService(getIntent())) { // modified: v4.6.9
+                lastStartedRound = AlertSession.get(this).getRound(); // modified: 登记已启动轮次
+            } // modified: v4.6.9
         } else {
             // modified: 【v4.3.1 独立复审】manifest 的 configChanges 已移除 uiMode，
             // 主题切换会重建本页，lastStartedRound 随之归零。重建后若再收到「同一轮」
@@ -104,8 +110,11 @@ public class AlertActivity extends AppCompatActivity {
         // 反复点通知就能让这一轮永远响不完。只有轮次真的变了才需要重新启动。
         int incomingRound = AlertSession.get(this).getRound(); // modified
         if (incomingRound != lastStartedRound) { // modified
-            lastStartedRound = incomingRound; // modified
-            startAlertService(intent); // modified: v4.6.8 仅新一轮、且本轮确实要出声时才重启
+            // 【修改 v4.6.9】同样只在启动成功时登记：状态通知（不出声）或启动被拒
+            // 时保持原值，真正的本轮播放请求到来时仍有机会启动服务。
+            if (startAlertService(intent)) { // modified: v4.6.9
+                lastStartedRound = incomingRound; // modified
+            } // modified: v4.6.9
         } else { // modified
             Log.d(TAG, "same round re-delivered, keep current playback"); // modified
         }
@@ -204,11 +213,15 @@ public class AlertActivity extends AppCompatActivity {
      * <p>这是 v4 合规链路的核心：Android 12+ 的后台启动限制有「应用从用户可见状态转换」
      * 这一豁免项，而短信广播不在豁免清单里。把启动点放到这里，主链路才成立。
      * 即使启动失败，通知渠道自带的闹铃音也已经在通知到达时响过，不会完全静默。
+     *
+     * <p>【修改 v4.6.9】返回是否真的发出了启动请求，供调用方决定要不要登记
+     * 「已启动轮次」。原实现返回 void，启动被拒也照样登记，兜底闹钟的同轮重试
+     * 会被 onNewIntent 的去重误杀。
      */
-    private void startAlertService(Intent intent) { // modified: v4.6.8 增加 Intent 参数
+    private boolean startAlertService(Intent intent) { // modified: v4.6.8 增加 Intent 参数 // modified: v4.6.9 返回启动结果
         if (!AlertSession.get(this).isActive()) {
             Log.d(TAG, "session inactive, skip starting service");
-            return;
+            return false; // 新增 v4.6.9
         }
         // 【新增 v4.6.8】状态通知（已稍后提醒 / 已提醒 N 次 / 已结束）点击也会打开本页，
         // 但绝不能再启动播放服务：那会让「5 分钟后再次响铃」当场变成「立刻再响一轮」。
@@ -217,7 +230,7 @@ public class AlertActivity extends AppCompatActivity {
             Log.d(TAG, "status notification opened, show content only, no playback");
             SmsTrace.add(this, "告警页已打开",
                     "状态通知入口：只展示内容，不重放已结束的一轮铃声");
-            return;
+            return false; // 新增 v4.6.9
         }
         try {
             Intent serviceIntent = new Intent(this, SMSForegroundService.class); // 显式 Intent
@@ -232,9 +245,12 @@ public class AlertActivity extends AppCompatActivity {
             // 播放服务就不会启动，用户只会听到通知渠道那一声。
             SmsTrace.add(AlertActivity.this, "告警页已拉起", // 新增 v4.5.9
                     "本轮持续响铃交由播放服务接管"); // 新增 v4.5.9
+            return true; // 新增 v4.6.9
         } catch (Exception e) {
             // 例如用户刚点过「停止」、或系统临时拒绝：不能让全屏页因此崩掉
             Log.e(TAG, "start foreground service failed", e);
+            SmsTrace.skip(this, "告警页启动播放被拒", e.toString()); // 新增 v4.6.9
+            return false; // 新增 v4.6.9
         }
     }
 

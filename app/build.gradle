@@ -218,8 +218,32 @@ android {
         //           `## vX · 标题` 又有一行 `# vX · 标题`，awk 把 H1 也带进了 body）。
         //           已统一为只保留 `## vX · 标题`，并在 CI 里过滤残留的 H1。
         //           versionCode 44 -> 45；配置键名与存储格式未变，固定签名不变，可直接覆盖升级
-        versionCode 45 // modified: v4.6.8 发布
-        versionName "4.6.8" // modified: v4.6.8 发布
+        // modified: v4.6.9 = 修「开机运行时间久了偶尔无法报警」为主的一批可靠性缺陷：
+        //           ①【P1】守护被 ROM 回收后，15 分钟兜底任务用 startForegroundService
+        //           拉起它，但 Android 12+ 后台启动豁免清单里没有 JobScheduler（官方文档
+        //           核实）：电池优化未关闭时启动被拒，守护永远起不来，短信广播重新被
+        //           延迟投递，诊断还谎报「已重新拉起」。GuardService.start() 改为返回
+        //           真实结果；被拒时挂一条 1 分钟后的 setAlarmClock 重试（闹钟广播是
+        //           官方豁免上下文，不依赖电池优化开关）；守护起来后自动撤掉重试闹钟。
+        //           ②【P1】告警页 onCreate 无条件登记「已启动轮次」，启动被系统拒绝时
+        //           兜底闹钟的同轮重试被 onNewIntent 去重误杀，整轮只剩通知一声。
+        //           改为只有启动成功才登记（onCreate / onNewIntent 两处）。
+        //           ③【P1】通知渠道被设成「关闭」后 notify() 静默丢弃，post() 仍返回
+        //           true，本轮不走兜底播放。新增 channelBlocked() 检测，如实返回 false
+        //           并写诊断，本轮改由兜底闹钟直接拉起播放服务（MediaPlayer 不依赖渠道）。
+        //           ④【P1】endRound() 用过期轮次重挂闹钟：播放中来新短信（会话重置）或
+        //           单轮时长 > 重复间隔（闹钟已推进会话）时，会覆盖/回退调度器挂好的
+        //           下一轮，造成错轮、丢轮、会话无限拖延。会话轮次 != 本轮时直接退出，
+        //           调度权交还 AlertDispatcher。
+        //           ⑤【P2】短信广播到达 / 重复闹钟触发时顺手补拉守护（豁免或电池优化
+        //           关闭时立即生效），缩短守护空窗。
+        //           ⑥【P2】去重窗口用墙钟：时间回拨时负时差被当成「3 秒内重复」吞短信，
+        //           负时差一律按不在窗口内处理。
+        //           ⑦【P2】重复轮派发失败补诊断；状态条截断改码点安全；铃声导入的
+        //           显示名查询移出 UI 线程；播放服务 Android 14+ 显式声明 mediaPlayback。
+        //           versionCode 45 -> 46；未新增权限，配置键名与存储格式未变，固定签名不变
+        versionCode 46 // modified: v4.6.9 发布
+        versionName "4.6.9" // modified: v4.6.9 发布
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
